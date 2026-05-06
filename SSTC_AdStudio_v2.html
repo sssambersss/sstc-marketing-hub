@@ -1,0 +1,1828 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SST&C Ad Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Noto+Serif+TC:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --cream:#fefcf8;--cream2:#faf7f0;--cream3:#fffefb;
+  --gold:#a8862a;--gold2:#8a6d1e;--gold3:#6b5216;--gold4:rgba(168,134,42,0.18);
+  --ink:#1c1408;--ink2:#3d2e12;--ink3:#6b5234;
+  --border:rgba(168,134,42,0.22);--border2:rgba(168,134,42,0.42);
+  --red:#6b4010;--red-bg:#f7f0e4;
+  --green:#8a6d1e;--green-bg:#fdf5e0;
+  --amber:#a87830;--amber-bg:#fdf4e6;--amber-border:rgba(168,120,48,0.38);
+  --rad:6px;
+  --font-display:'Cinzel',serif;
+  --font-body:'Noto Serif TC',Georgia,serif;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --cream:#1c1710;--cream2:#231d13;--cream3:#28221a;
+    --gold:#c9a84c;--gold2:#b8933c;--gold3:#a07828;--gold4:rgba(201,168,76,0.14);
+    --ink:#f0ead8;--ink2:#c8b898;--ink3:#9a8060;
+    --border:rgba(201,168,76,0.16);--border2:rgba(201,168,76,0.32);
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-body);font-size:14px;color:var(--ink);background:var(--cream);min-height:100vh}
+
+/* ── TOPBAR ── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;height:56px;
+  background:var(--cream3);box-shadow:0 1px 0 var(--border);
+  gap:12px;flex-shrink:0;position:sticky;top:0;z-index:100;
+}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-box{border:1px solid var(--border2);padding:4px 16px}
+.brand-name{font-family:var(--font-display);font-size:15px;letter-spacing:5px;color:var(--gold);font-weight:600}
+.brand-sub{font-family:var(--font-display);font-size:7px;letter-spacing:3px;color:var(--gold3);margin-top:1px;text-align:center}
+.brand-divider{width:1px;height:28px;background:var(--border2)}
+.brand-title{font-family:var(--font-display);font-size:10px;letter-spacing:3px;color:var(--gold3)}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.btn{padding:6px 14px;font-family:var(--font-display);font-size:9px;letter-spacing:2px;border:1px solid var(--border2);cursor:pointer;background:transparent;color:var(--ink2);transition:all .2s}
+.btn:hover{background:var(--gold4);border-color:var(--gold)}
+.btn-gold{background:var(--gold);color:var(--cream);border-color:var(--gold)}
+.btn-gold:hover{background:var(--gold2)}
+.btn-sm{padding:3px 9px;font-size:8px}
+
+/* ── TOOL TABS ── */
+.tool-nav{
+  display:flex;gap:0;padding:0 28px;
+  background:var(--cream3);border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  overflow-x:auto;flex-shrink:0;
+}
+.tool-btn{
+  padding:12px 22px;font-family:var(--font-display);font-size:10px;letter-spacing:2px;
+  border:none;background:transparent;color:var(--gold3);cursor:pointer;
+  white-space:nowrap;position:relative;transition:color .2s;
+  border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:6px;
+}
+.tool-btn:hover{color:var(--gold)}
+.tool-btn.active{color:var(--gold);border-bottom-color:var(--gold)}
+.tool-btn .platform-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--gold2)!important;border:1px solid var(--border2);opacity:.72}
+.tool-btn.active .platform-dot{background:var(--gold)!important;opacity:1}
+
+/* ── LAYOUT ── */
+.app{display:flex;flex-direction:column;height:100vh}
+.content{overflow-y:auto;flex:1}
+.tool-panel{display:none;padding:0}
+.tool-panel.active{display:grid;grid-template-columns:1fr 1fr;min-height:calc(100vh - 112px)}
+
+/* ── EDITOR PANE ── */
+.editor-pane{
+  padding:24px 28px;border-right:1px solid var(--border);
+  overflow-y:auto;max-height:calc(100vh - 112px);
+}
+.preview-pane{
+  padding:24px 28px;background:var(--cream2);
+  overflow-y:auto;max-height:calc(100vh - 112px);
+  position:sticky;top:112px;
+}
+
+/* ── SECTION LABEL ── */
+.section-label{
+  font-family:var(--font-display);font-size:10px;letter-spacing:3px;color:var(--gold3);
+  padding-bottom:10px;margin-bottom:16px;
+  display:flex;align-items:center;gap:12px;
+}
+.section-label::before{content:'';display:block;width:3px;height:14px;background:var(--gold)}
+
+/* ── FORM ── */
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.fg.f1{grid-template-columns:1fr}
+.fl{display:flex;flex-direction:column;gap:5px}
+.fl label{font-family:var(--font-display);font-size:8px;letter-spacing:2px;color:var(--gold3)}
+.fl input,.fl select,.fl textarea{
+  font-family:var(--font-body);font-size:13px;padding:7px 10px;
+  border:1px solid var(--border2);background:var(--cream);color:var(--ink);
+  transition:border-color .2s;
+}
+.fl input:focus,.fl select:focus,.fl textarea:focus{outline:none;border-color:var(--gold)}
+.fl textarea{resize:vertical;min-height:80px}
+.fl input.over{border-color:var(--amber);background:var(--amber-bg)}
+.char-badge{font-family:var(--font-display);font-size:8px;letter-spacing:1px;float:right;margin-top:2px}
+.char-ok{color:var(--gold2)}
+.char-warn{color:var(--amber)}
+.char-err{color:var(--red)}
+
+/* ── STATUS BAR ── */
+.status-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.status-pill{padding:4px 10px;font-family:var(--font-display);font-size:8px;letter-spacing:1px;border-radius:0}
+.sp-ok{background:var(--green-bg);color:var(--green);border:1px solid rgba(138,109,30,0.3)}
+.sp-pend{background:var(--cream2);color:var(--gold3);border:1px solid var(--border2)}
+.sp-warn{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-border)}
+.sp-err{background:var(--red-bg);color:var(--red);border:1px solid rgba(107,64,16,0.3)}
+
+/* ── BRAND SELECTOR ── */
+.brand-sel{display:flex;gap:8px;margin-bottom:12px}
+.brand-opt{
+  flex:1;padding:10px;border:1px solid var(--border2);cursor:pointer;
+  font-family:var(--font-display);font-size:10px;letter-spacing:2px;text-align:center;
+  color:var(--gold3);background:var(--cream3);transition:all .2s;
+}
+.brand-opt:hover{border-color:var(--gold);color:var(--gold)}
+.brand-opt.sel{background:var(--gold);color:var(--cream);border-color:var(--gold)}
+
+/* ── AI COPY BTN ── */
+.ai-gen-btn{
+  width:100%;padding:9px;margin-top:6px;
+  font-family:var(--font-display);font-size:9px;letter-spacing:2px;
+  border:1px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.ai-gen-btn:hover{background:var(--gold);color:var(--cream)}
+.ai-gen-btn:disabled{opacity:.5;cursor:not-allowed}
+.ai-result{
+  margin-top:8px;padding:12px 14px;background:var(--cream2);
+  border-left:3px solid var(--gold4);font-size:13px;line-height:1.9;
+  color:var(--ink);white-space:pre-wrap;display:none;
+}
+.ai-result.show{display:block}
+.ai-options{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.ai-option{background:var(--cream2);border:1px solid var(--border);border-left:3px solid var(--gold);padding:12px 14px}
+.ai-option-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.ai-option-title{font-family:var(--font-display);font-size:8px;letter-spacing:2px;color:var(--gold3)}
+.ai-option-body{font-size:13px;line-height:1.7;white-space:pre-wrap;color:var(--ink2);margin-bottom:8px}
+.ai-option-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
+.ai-option-field{background:var(--cream3);border:.5px solid var(--border);padding:7px 9px;font-size:12px;line-height:1.5}
+.ai-option-field span{display:block;font-family:var(--font-display);font-size:7px;letter-spacing:1.5px;color:var(--gold3);margin-bottom:2px}
+.ai-option-actions{display:flex;gap:6px;flex-wrap:wrap}
+@keyframes ai-pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.ai-loading{animation:ai-pulse 1.2s ease-in-out infinite;color:var(--gold3);font-family:var(--font-display);font-size:9px;letter-spacing:2px;padding:12px;text-align:center}
+
+.catalog-import{background:var(--cream2);border:1px solid var(--border);padding:12px 14px;margin-bottom:12px}
+.catalog-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.catalog-candidates{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.catalog-candidate{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start;background:var(--cream3);border:.5px solid var(--border);padding:8px 10px}
+.catalog-candidate-title{font-size:12px;font-weight:600;color:var(--ink2);line-height:1.5}
+.catalog-candidate-url{font-size:10px;color:var(--gold3);word-break:break-all;margin-top:2px}
+
+/* ── CAMPAIGN PICKER ── */
+.camp-pick{
+  padding:8px 10px;background:var(--cream2);border:1px solid var(--border);
+  margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+}
+.camp-pick-label{font-family:var(--font-display);font-size:8px;letter-spacing:2px;color:var(--gold3)}
+.camp-pick select{font-family:var(--font-body);font-size:12px;padding:5px 8px;border:1px solid var(--border2);background:var(--cream);color:var(--ink);flex:1}
+
+/* ── FILE UPLOAD ── */
+.file-drop{
+  border:1.5px dashed var(--border2);padding:14px;text-align:center;cursor:pointer;
+  transition:all .2s;background:var(--cream3);margin-bottom:8px;
+}
+.file-drop:hover{border-color:var(--gold);background:var(--gold4)}
+.file-drop input{display:none}
+.file-drop-label{font-family:var(--font-display);font-size:8px;letter-spacing:2px;color:var(--gold3);cursor:pointer}
+
+/* ── IMAGE TILES ── */
+.img-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:8px}
+.img-tile{border:1px solid var(--border);background:var(--cream)}
+.img-thumb{width:100%;aspect-ratio:1;background:var(--cream2);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.img-thumb img,.img-thumb video{width:100%;height:100%;object-fit:cover}
+.img-remove{position:absolute;top:4px;right:4px;background:rgba(107,64,16,.85);color:var(--cream);border:none;width:22px;height:22px;cursor:pointer;font-size:12px;font-weight:700}
+.img-meta{padding:6px 8px;font-family:var(--font-display);font-size:7px;letter-spacing:.5px;color:var(--gold3);line-height:1.6}
+.spec-ok{color:var(--green)}
+.spec-warn{color:var(--amber)}
+
+/* ── UTM ── */
+.utm-box{background:var(--cream2);border:1px solid var(--border);padding:12px 14px;margin-top:12px}
+.utm-result{font-size:11px;color:var(--gold3);word-break:break-all;margin-top:6px;line-height:1.7}
+
+/* ── EXPORT BTN ── */
+.export-btn{
+  width:100%;padding:12px;margin-top:16px;
+  font-family:var(--font-display);font-size:10px;letter-spacing:3px;
+  border:1px solid var(--gold2);background:var(--gold2);color:var(--cream);cursor:pointer;transition:all .2s;
+}
+.export-btn:hover{background:var(--gold3)}
+
+/* ── FB PREVIEW ── */
+.fb-mock{background:#f0f2f5;padding:14px;border-radius:6px}
+.fb-post{background:#fff;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.1);font-family:-apple-system,'Segoe UI',sans-serif}
+.fb-hd{padding:10px 14px;display:flex;align-items:center;gap:8px}
+.fb-av{width:38px;height:38px;border-radius:50%;background:#e4e6eb;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.fb-pg{flex:1}.fb-pn{font-weight:600;font-size:14px;color:#050505}
+.fb-ts{font-size:12px;color:#65676b}
+.fb-cap{padding:4px 14px 10px;font-size:14px;color:#050505;white-space:pre-wrap;line-height:1.4;word-break:break-word}
+.fb-img-area{background:#000;min-height:80px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:13px;position:relative}
+.fb-img-area img{width:100%;display:block}
+.fb-link{border-top:1px solid #e4e6eb;padding:10px 14px;text-decoration:none;display:block;color:inherit;transition:background .1s}
+.fb-link:hover{background:#f7f8fa}
+.fb-domain{font-size:11px;color:#65676b;text-transform:uppercase;margin-bottom:3px}
+.fb-ltitle{font-size:15px;font-weight:600;color:#050505}
+.fb-ldesc{font-size:13px;color:#65676b}
+.fb-actions{padding:6px 14px;border-top:1px solid #e4e6eb;display:flex;gap:4px}
+.fb-act{flex:1;padding:7px;text-align:center;color:#65676b;font-size:14px;font-weight:600;cursor:pointer;border-radius:4px}
+.fb-act:hover{background:#f2f3f5}
+
+/* ── GOOGLE PREVIEW ── */
+.google-mock{background:#f1f3f4;padding:14px;border-radius:6px}
+.g-ad{background:#fff;border-radius:6px;overflow:hidden;box-shadow:0 1px 3px rgba(60,64,67,.2);font-family:'Roboto',sans-serif;margin-bottom:12px}
+.g-img{background:#202124;min-height:140px;display:flex;align-items:center;justify-content:center;position:relative}
+.g-img img{width:100%;display:block}
+.g-body{padding:10px 14px}
+.g-badge{font-size:11px;color:#202124;font-weight:600;margin-bottom:4px}
+.g-hl{font-size:17px;font-weight:500;color:#202124;line-height:1.35}
+.g-desc{font-size:13px;color:#5f6368;margin-top:4px;line-height:1.45}
+.g-logo-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.g-logo{width:36px;height:36px;background:#f1f3f4;border-radius:3px;overflow:hidden}
+.g-logo img{width:100%;height:100%;object-fit:cover}
+.g-chevron{color:#5f6368;margin-left:auto}
+.g-tab-row{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.g-tab{padding:5px 12px;font-size:12px;border:1px solid #dadce0;background:#fff;cursor:pointer;border-radius:3px;color:#5f6368;transition:all .15s}
+.g-tab.active{background:#e8f0fe;border-color:#1a73e8;color:#1a73e8}
+
+/* ── HODO PREVIEW ── */
+.hodo-mock{background:#e8eaed;padding:14px;border-radius:6px}
+.push-notif{background:#fff;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);overflow:hidden;font-family:'Segoe UI',sans-serif;margin-bottom:12px}
+.push-hd{padding:10px 14px 8px;display:flex;align-items:center;gap:8px}
+.push-ico{width:38px;height:38px;border-radius:3px;background:#f1f3f4;overflow:hidden;flex-shrink:0}
+.push-ico img{width:100%;height:100%;object-fit:cover}
+.push-title{font-weight:600;font-size:14px;color:#202124;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.push-body-txt{font-size:12px;color:#5f6368;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.push-big{min-height:120px;background:#202124;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:12px}
+.push-big img{width:100%;display:block}
+.push-footer{padding:6px 14px;background:#f8f9fa;border-top:1px solid #f1f3f4;font-size:10px;color:#80868b;display:flex;justify-content:space-between}
+.scroller-card{background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);overflow:hidden;margin-bottom:12px}
+.scroller-img{width:100%;min-height:160px;background:#202124;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:12px}
+.scroller-img img{width:100%;display:block}
+.scroller-body{padding:10px 12px;display:flex;gap:8px;align-items:flex-start}
+.scroller-logo-wrap{width:44px;height:44px;background:#f1f3f4;border-radius:3px;overflow:hidden;flex-shrink:0}
+.scroller-logo-wrap img{width:100%;height:100%;object-fit:contain}
+.scroller-title{font-size:15px;font-weight:700;color:#333;line-height:1.35}
+
+/* ── PRODUCTS (Catalog) ── */
+.product-card{background:var(--cream3);border:.5px solid var(--border);padding:12px 14px;margin-bottom:8px}
+.product-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.product-num{font-family:var(--font-display);font-size:9px;letter-spacing:2px;color:var(--gold3)}
+.carousel-preview{background:#f0f2f5;border-radius:6px;overflow:hidden;margin-bottom:12px}
+.carousel-slide{display:none}
+.carousel-slide.active{display:block}
+.carousel-img{width:100%;aspect-ratio:1;background:#e4e6eb;display:flex;align-items:center;justify-content:center;color:#65676b;font-size:13px;overflow:hidden;position:relative}
+.carousel-img img{width:100%;height:100%;object-fit:cover}
+.carousel-info{background:#fff;padding:10px 14px;border-top:1px solid #e4e6eb}
+.carousel-nav{display:flex;justify-content:center;gap:6px;padding:8px;background:#fff;border-top:1px solid #e4e6eb}
+.c-dot{width:8px;height:8px;border-radius:50%;background:#ccd0d5;cursor:pointer;transition:all .2s}
+.c-dot.active{background:#1877f2;width:22px;border-radius:4px}
+
+/* ── PMAX PREVIEW ── */
+.pmax-assets{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.pmax-asset-box{border:1.5px dashed var(--border2);padding:10px;text-align:center;background:var(--cream3)}
+.pmax-asset-box label{font-family:var(--font-display);font-size:8px;letter-spacing:1.5px;color:var(--gold3);display:block;margin-bottom:6px}
+.pmax-mini{width:100%;height:80px;background:var(--cream2);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;margin-bottom:6px}
+.pmax-mini img{width:100%;height:100%;object-fit:cover}
+.video-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.video-slot{display:flex;gap:8px;align-items:center;padding:8px 10px;background:var(--cream3);border:.5px solid var(--border)}
+.video-thumb{width:60px;height:44px;background:#000;overflow:hidden;flex-shrink:0}
+.video-thumb video{width:100%;height:100%;object-fit:cover}
+.video-info{flex:1;font-family:var(--font-display);font-size:8px;letter-spacing:.5px;color:var(--gold3)}
+
+/* ── SHORT HL LIST ── */
+.shl-list{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.shl-row{display:flex;gap:6px;align-items:center}
+.shl-row input{flex:1;font-family:var(--font-body);font-size:13px;padding:6px 9px;border:1px solid var(--border2);background:var(--cream);color:var(--ink)}
+.shl-del{background:none;border:none;color:var(--gold3);cursor:pointer;font-size:16px;padding:0 4px}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(168,134,42,0.28);border-radius:3px}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--gold);color:var(--cream);padding:10px 20px;font-family:var(--font-display);font-size:9px;letter-spacing:2px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+
+/* ── RESPONSIVE ── */
+.tool-panel.active{grid-template-columns:1fr 1fr}
+@media(max-width:900px){
+  .tool-panel.active{grid-template-columns:1fr}
+  .preview-pane{display:none}
+  .topbar{padding:0 14px}
+  .brand-sub,.brand-divider,.brand-title{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-box">
+      <div class="brand-name">SST&amp;C</div>
+      <div class="brand-sub">STYLE · SELECTION · TASTE &amp; CULTURE</div>
+    </div>
+    <div class="brand-divider"></div>
+    <div class="brand-title">AD STUDIO</div>
+  </div>
+  <div class="topbar-right">
+    <a href="SSTC_v46.html" class="btn">← 行銷系統</a>
+    <span id="camp-sync-badge" style="font-family:var(--font-display);font-size:8px;letter-spacing:1px;color:var(--gold3);display:none"></span>
+  </div>
+</div>
+
+<!-- TOOL NAV -->
+<div class="tool-nav">
+  <button class="tool-btn active" data-tool="fb-single" onclick="switchTool('fb-single',this)">
+    <div class="platform-dot"></div>FB 單圖廣告
+  </button>
+  <button class="tool-btn" data-tool="fb-catalog" onclick="switchTool('fb-catalog',this)">
+    <div class="platform-dot"></div>FB 目錄型廣告
+  </button>
+  <button class="tool-btn" data-tool="google-pmax" onclick="switchTool('google-pmax',this)">
+    <div class="platform-dot"></div>Google PMAX
+  </button>
+  <button class="tool-btn" data-tool="hodo" onclick="switchTool('hodo',this)">
+    <div class="platform-dot"></div>禾多 Hodo
+  </button>
+</div>
+
+<div class="content">
+
+<!-- ═══════════════════════════════════════
+     FB 單圖廣告
+     ═══════════════════════════════════════ -->
+<div id="tool-fb-single" class="tool-panel active">
+  <div class="editor-pane">
+    <div class="section-label">FB 單圖廣告 · Single Image Ad</div>
+
+    <!-- Status -->
+    <div class="status-bar" id="fbs-status"></div>
+
+    <!-- Campaign Bridge -->
+    <div class="camp-pick">
+      <span class="camp-pick-label">關聯活動</span>
+      <select id="fbs-camp" onchange="fbsSyncCamp()">
+        <option value="">— 從 v45 選擇活動 —</option>
+      </select>
+    </div>
+
+    <!-- Brand -->
+    <div class="fl" style="margin-bottom:12px">
+      <label>品牌</label>
+      <div class="brand-sel">
+        <div class="brand-opt sel" onclick="fbsSetBrand('SST&amp;C',this)">SST&amp;C</div>
+        <div class="brand-opt" onclick="fbsSetBrand('ARVOpm',this)">ARVOpm</div>
+      </div>
+    </div>
+
+    <!-- Dates -->
+    <div class="fg">
+      <div class="fl"><label>刊登開始</label><input type="date" id="fbs-start" oninput="fbsUpdate()"></div>
+      <div class="fl"><label>刊登結束</label><input type="date" id="fbs-end" oninput="fbsUpdate()"></div>
+    </div>
+
+    <!-- Caption Title -->
+    <div class="fl" style="margin-bottom:12px">
+      <label>文案標題（匯出用）<span class="char-badge" id="fbs-ct-badge">0/15</span></label>
+      <input type="text" id="fbs-ct" maxlength="15" placeholder="15字內" oninput="fbsUpdate()">
+    </div>
+
+    <!-- Caption -->
+    <div class="fl" style="margin-bottom:4px">
+      <label>文案 Primary Text<span class="char-badge" id="fbs-cap-badge">0字</span></label>
+      <textarea id="fbs-cap" rows="5" placeholder="每行最多18字（可用 emoji、#hashtag、網址）&#10;超過125字會被收起" oninput="fbsUpdate()"></textarea>
+    </div>
+
+    <!-- AI COPY -->
+    <button class="ai-gen-btn" id="fbs-ai-btn" onclick="fbsAICopy()">⚡ AI 自動生成文案</button>
+    <div class="ai-result" id="fbs-ai-result"></div>
+    <div style="display:flex;gap:6px;margin-top:6px;display:none" id="fbs-ai-actions">
+      <button class="btn btn-sm" onclick="copyAI('fbs-ai-result')">複製</button>
+      <button class="btn btn-sm btn-gold" onclick="useAI('fbs-ai-result','fbs-cap')">填入文案</button>
+    </div>
+    <div class="ai-options" id="fbs-ai-options"></div>
+
+    <!-- Image Upload -->
+    <div class="fl" style="margin-top:16px;margin-bottom:4px">
+      <label>上傳圖片素材</label>
+      <div class="file-drop" onclick="document.getElementById('fbs-img-input').click()">
+        <input type="file" id="fbs-img-input" accept="image/jpeg,image/png" onchange="fbsHandleImg(this)">
+        <label class="file-drop-label">📷 點擊上傳圖片（JPG/PNG，建議 1200×628）</label>
+      </div>
+      <div class="img-tiles" id="fbs-img-tiles"></div>
+    </div>
+
+    <!-- Material URL -->
+    <div class="fl" style="margin-bottom:16px">
+      <label>素材雲端連結</label>
+      <input type="url" id="fbs-mat-url" placeholder="Google Drive 連結" oninput="fbsUpdate()">
+    </div>
+
+    <!-- UTM -->
+    <div class="utm-box">
+      <div class="section-label" style="margin-bottom:10px;padding-bottom:6px">UTM 設定</div>
+      <div class="fg">
+        <div class="fl"><label>目標網址</label><input type="url" id="fbs-url" oninput="fbsUpdateUtm()"></div>
+        <div class="fl"><label>utm_campaign</label><input type="text" id="fbs-utm-camp" oninput="fbsUpdateUtm()"></div>
+        <div class="fl"><label>utm_source</label><input type="text" id="fbs-utm-src" value="facebook" oninput="fbsUpdateUtm()"></div>
+        <div class="fl"><label>utm_medium</label><input type="text" id="fbs-utm-med" value="cpc" oninput="fbsUpdateUtm()"></div>
+      </div>
+      <div class="utm-result" id="fbs-utm-result">請先輸入目標網址</div>
+    </div>
+
+    <!-- Headline + Desc -->
+    <div class="fg" style="margin-top:12px">
+      <div class="fl"><label>標題 Headline<span class="char-badge" id="fbs-hl-badge">0/20</span></label><input type="text" id="fbs-hl" maxlength="20" oninput="fbsUpdate()"></div>
+      <div class="fl"><label>連結說明 Description<span class="char-badge" id="fbs-desc-badge">0/15</span></label><input type="text" id="fbs-desc" maxlength="15" oninput="fbsUpdate()"></div>
+    </div>
+
+    <button class="export-btn" onclick="fbsExport()">↓ 匯出 Excel</button>
+  </div>
+
+  <!-- FB PREVIEW -->
+  <div class="preview-pane">
+    <div class="section-label">預覽</div>
+    <div class="fb-mock">
+      <div class="fb-post">
+        <div class="fb-hd">
+          <div class="fb-av">📸</div>
+          <div class="fb-pg"><div class="fb-pn" id="fbs-pv-brand">SST&amp;C</div><div class="fb-ts">贊助 · 🌐</div></div>
+        </div>
+        <div class="fb-cap" id="fbs-pv-cap" style="color:#aaa;font-size:13px">請在左側輸入主要文案</div>
+        <div class="fb-img-area" id="fbs-pv-img">尚未上傳圖片</div>
+        <a class="fb-link" id="fbs-pv-link" style="display:none" href="#" target="_blank">
+          <div class="fb-domain" id="fbs-pv-domain">EXAMPLE.COM</div>
+          <div class="fb-ltitle" id="fbs-pv-title">標題</div>
+          <div class="fb-ldesc" id="fbs-pv-desc">說明</div>
+        </a>
+        <div class="fb-actions"><div class="fb-act">👍 讚</div><div class="fb-act">💬 留言</div><div class="fb-act">↗️ 分享</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     FB 目錄型廣告
+     ═══════════════════════════════════════ -->
+<div id="tool-fb-catalog" class="tool-panel">
+  <div class="editor-pane">
+    <div class="section-label">FB 目錄型廣告 · DPA Catalog Ads</div>
+    <div class="status-bar" id="fbc-status"></div>
+
+    <div class="camp-pick">
+      <span class="camp-pick-label">關聯活動</span>
+      <select id="fbc-camp" onchange="fbcSyncCamp()"><option value="">— 從 v45 選擇活動 —</option></select>
+    </div>
+
+    <div class="fl" style="margin-bottom:12px">
+      <label>品牌</label>
+      <div class="brand-sel">
+        <div class="brand-opt sel" onclick="fbcSetBrand('SST&amp;C',this)">SST&amp;C</div>
+        <div class="brand-opt" onclick="fbcSetBrand('ARVOpm',this)">ARVOpm</div>
+      </div>
+    </div>
+
+    <div class="fg">
+      <div class="fl"><label>刊登開始</label><input type="date" id="fbc-start" oninput="fbcUpdate()"></div>
+      <div class="fl"><label>刊登結束</label><input type="date" id="fbc-end" oninput="fbcUpdate()"></div>
+    </div>
+
+    <div class="fl" style="margin-bottom:12px">
+      <label>文案標題（匯出用）<span class="char-badge" id="fbc-ct-badge">0/15</span></label>
+      <input type="text" id="fbc-ct" maxlength="15" oninput="fbcUpdate()">
+    </div>
+
+    <div class="fl" style="margin-bottom:4px">
+      <label>文案 Primary Text<span class="char-badge" id="fbc-cap-badge">0字</span></label>
+      <textarea id="fbc-cap" rows="4" oninput="fbcUpdate()"></textarea>
+    </div>
+    <button class="ai-gen-btn" onclick="fbcAICopy()">⚡ AI 自動生成文案</button>
+    <div class="ai-result" id="fbc-ai-result"></div>
+    <div style="display:flex;gap:6px;margin-top:6px;display:none" id="fbc-ai-actions">
+      <button class="btn btn-sm" onclick="copyAI('fbc-ai-result')">複製</button>
+      <button class="btn btn-sm btn-gold" onclick="useAI('fbc-ai-result','fbc-cap')">填入文案</button>
+    </div>
+    <div class="ai-options" id="fbc-ai-options"></div>
+
+    <!-- Assets -->
+    <div class="fl" style="margin-top:16px;margin-bottom:4px">
+      <label>上傳主素材（最多 2 影片 + 1 圖）</label>
+      <div class="file-drop" onclick="document.getElementById('fbc-assets-input').click()">
+        <input type="file" id="fbc-assets-input" accept="image/jpeg,image/png,video/mp4,video/quicktime" multiple onchange="fbcHandleAssets(this)">
+        <label class="file-drop-label">🎬📷 點擊上傳素材</label>
+      </div>
+      <div class="img-tiles" id="fbc-asset-tiles"></div>
+    </div>
+
+    <div class="fl" style="margin-bottom:12px">
+      <label>素材雲端連結</label>
+      <input type="url" id="fbc-mat-url" oninput="fbcUpdate()">
+    </div>
+
+    <div class="utm-box">
+      <div class="section-label" style="margin-bottom:10px;padding-bottom:6px">UTM 設定</div>
+      <div class="fg">
+        <div class="fl"><label>目標網址</label><input type="url" id="fbc-url" oninput="fbcUpdateUtm()"></div>
+        <div class="fl"><label>utm_campaign</label><input type="text" id="fbc-utm-camp" oninput="fbcUpdateUtm()"></div>
+        <div class="fl"><label>utm_source</label><input type="text" id="fbc-utm-src" value="facebook" oninput="fbcUpdateUtm()"></div>
+        <div class="fl"><label>utm_medium</label><input type="text" id="fbc-utm-med" value="cpc" oninput="fbcUpdateUtm()"></div>
+      </div>
+      <div class="utm-result" id="fbc-utm-result">請先輸入目標網址</div>
+    </div>
+
+    <div class="fg" style="margin-top:12px">
+      <div class="fl"><label>標題 Headline<span class="char-badge" id="fbc-hl-badge">0/40</span></label><input type="text" id="fbc-hl" maxlength="40" oninput="fbcUpdate()"></div>
+      <div class="fl"><label>連結說明<span class="char-badge" id="fbc-desc-badge">0/30</span></label><input type="text" id="fbc-desc" maxlength="30" oninput="fbcUpdate()"></div>
+    </div>
+
+    <!-- Products -->
+    <div style="margin-top:16px">
+      <div class="section-label" style="margin-bottom:10px">商品列表（至少3個）</div>
+      <div class="catalog-import">
+        <div class="fg f1">
+          <div class="fl">
+            <label>官方分類網址 / 商品連結</label>
+            <input type="url" id="fbc-cat-url" placeholder="貼上 SST&C / ARVOpm 分類網址或商品網址">
+          </div>
+        </div>
+        <div class="catalog-actions">
+          <button class="btn btn-sm btn-gold" onclick="fbcLoadCategory()">讀取分類</button>
+          <button class="btn btn-sm" onclick="fbcOpenCategory()">開啟官網</button>
+        </div>
+        <div class="fl" style="margin-top:10px">
+          <label>或貼上商品資料（一行一個：商品網址｜商品名稱｜價格）</label>
+          <textarea id="fbc-product-paste" rows="3" placeholder="https://shop.sstandc.com/SalePage/Index/10522117｜商品名稱｜NT$1,280"></textarea>
+        </div>
+        <div class="catalog-actions">
+          <button class="btn btn-sm btn-gold" onclick="fbcImportPastedProducts()">解析貼上商品</button>
+          <button class="btn btn-sm" onclick="fbcAddSelectedProducts()">加入勾選商品</button>
+          <button class="btn btn-sm" onclick="fbcApplyProductUtms();fbcRenderProducts();fbcUpdate()">更新商品 UTM</button>
+        </div>
+        <div class="catalog-candidates" id="fbc-candidates"></div>
+      </div>
+      <div id="fbc-products"></div>
+      <button class="btn btn-sm" style="width:100%;margin-top:6px" onclick="fbcAddProduct()">+ 新增商品</button>
+    </div>
+
+    <button class="export-btn" onclick="fbcExport()">↓ 匯出 Excel</button>
+  </div>
+
+  <!-- Catalog Preview -->
+  <div class="preview-pane">
+    <div class="section-label">預覽</div>
+    <div class="fb-mock">
+      <div class="fb-post">
+        <div class="fb-hd">
+          <div class="fb-av">🛍️</div>
+          <div class="fb-pg"><div class="fb-pn" id="fbc-pv-brand">SST&amp;C</div><div class="fb-ts">贊助 · 🌐</div></div>
+        </div>
+        <div class="fb-cap" id="fbc-pv-cap">請輸入主要文案</div>
+        <div class="carousel-preview" id="fbc-carousel">
+          <div class="carousel-slide active">
+            <div class="carousel-img"><span>📦 請新增商品</span></div>
+          </div>
+        </div>
+        <div class="carousel-nav" id="fbc-carousel-nav"></div>
+        <div class="fb-actions"><div class="fb-act">👍 讚</div><div class="fb-act">💬 留言</div><div class="fb-act">↗️ 分享</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     GOOGLE PMAX
+     ═══════════════════════════════════════ -->
+<div id="tool-google-pmax" class="tool-panel">
+  <div class="editor-pane">
+    <div class="section-label">Google PMAX 廣告素材</div>
+    <div class="status-bar" id="pm-status"></div>
+
+    <div class="camp-pick">
+      <span class="camp-pick-label">關聯活動</span>
+      <select id="pm-camp" onchange="pmSyncCamp()"><option value="">— 從 v45 選擇活動 —</option></select>
+    </div>
+
+    <div class="fl" style="margin-bottom:12px">
+      <label>品牌</label>
+      <div class="brand-sel">
+        <div class="brand-opt sel" onclick="pmSetBrand('SST&amp;C',this)">SST&amp;C</div>
+        <div class="brand-opt" onclick="pmSetBrand('ARVOpm',this)">ARVOpm</div>
+      </div>
+    </div>
+
+    <div class="fl" style="margin-bottom:12px">
+      <label>廣告活動名稱</label>
+      <input type="text" id="pm-name" placeholder="例：End_Season_Sale_換季折扣" oninput="pmUpdate()">
+    </div>
+
+    <div class="fg">
+      <div class="fl"><label>刊登開始</label><input type="date" id="pm-start" oninput="pmUpdate()"></div>
+      <div class="fl"><label>刊登結束</label><input type="date" id="pm-end" oninput="pmUpdate()"></div>
+    </div>
+
+    <div style="background:var(--amber-bg);border-left:3px solid var(--amber);padding:10px 12px;font-size:12px;color:var(--amber);margin-bottom:12px;line-height:1.7">
+      ⚠️ <strong>PMAX 規範</strong>：不可有驚嘆號（! ！）· 圖片不建議壓字 · Logo 僅放 Logo 本體
+    </div>
+
+    <div class="catalog-import" style="margin-bottom:16px">
+      <div class="section-label" style="margin-bottom:10px;padding-bottom:6px">Codex 協作生成</div>
+      <div style="font-size:12px;color:var(--ink3);line-height:1.7;margin-bottom:10px">
+        這裡會整理品牌背景、活動資料與 PMAX 規格。複製後貼到 Codex 對話，我產出 JSON，再貼回下方匯入欄位。
+      </div>
+      <div class="catalog-actions">
+        <button class="btn btn-sm btn-gold" onclick="pmBuildPrompt()">產生給 Codex 的 Prompt</button>
+        <button class="btn btn-sm" onclick="copyAI('pm-ai-prompt')">複製 Prompt</button>
+      </div>
+      <textarea id="pm-ai-prompt" class="ai-result" style="display:block;width:100%;min-height:120px;margin-top:8px" readonly placeholder="按「產生給 Codex 的 Prompt」"></textarea>
+      <div class="fl" style="margin-top:10px">
+        <label>貼上 Codex 回覆 JSON</label>
+        <textarea id="pm-ai-import" rows="5" placeholder='{"long_headlines":["..."],"short_headlines":["..."],"descriptions":["..."]}'></textarea>
+      </div>
+      <div class="catalog-actions">
+        <button class="btn btn-sm btn-gold" onclick="pmImportAIResult()">匯入到 PMAX 欄位</button>
+      </div>
+    </div>
+
+    <!-- Image Assets -->
+    <div class="section-label" style="margin-bottom:10px;font-size:9px">圖片素材</div>
+    <div class="pmax-assets">
+      <div class="pmax-asset-box">
+        <label>橫式圖片（1200×628）</label>
+        <div class="pmax-mini" id="pm-land-mini"><span>🖼️</span></div>
+        <input type="file" id="pm-land-input" accept="image/*" style="display:none" onchange="pmHandleImg(this,'land')">
+        <button class="btn btn-sm" onclick="document.getElementById('pm-land-input').click()">上傳</button>
+      </div>
+      <div class="pmax-asset-box">
+        <label>正方形圖片（1200×1200）</label>
+        <div class="pmax-mini" id="pm-sq-mini"><span>🖼️</span></div>
+        <input type="file" id="pm-sq-input" accept="image/*" style="display:none" onchange="pmHandleImg(this,'sq')">
+        <button class="btn btn-sm" onclick="document.getElementById('pm-sq-input').click()">上傳</button>
+      </div>
+      <div class="pmax-asset-box">
+        <label>Logo（1200×1200 去背）</label>
+        <div class="pmax-mini" id="pm-logo-mini"><span>💎</span></div>
+        <input type="file" id="pm-logo-input" accept="image/*" style="display:none" onchange="pmHandleImg(this,'logo')">
+        <button class="btn btn-sm" onclick="document.getElementById('pm-logo-input').click()">上傳</button>
+      </div>
+    </div>
+
+    <!-- Videos -->
+    <div class="fl" style="margin-bottom:12px">
+      <label>影片素材（最多5支，每支需 &gt;10秒）</label>
+      <div class="video-list" id="pm-video-list"></div>
+      <input type="file" id="pm-video-input" accept="video/*" style="display:none" onchange="pmHandleVideo(this)">
+      <button class="btn btn-sm" style="width:100%;margin-top:6px" onclick="document.getElementById('pm-video-input').click()">+ 上傳影片（<span id="pm-vid-count">0</span>/5）</button>
+    </div>
+
+    <div class="fl" style="margin-bottom:12px">
+      <label>素材雲端連結</label>
+      <input type="url" id="pm-mat-url" value="https://drive.google.com/drive/folders/14gSxhACwMG8oeqWHYOEELYJnXPJf5gJ9?usp=sharing" oninput="pmUpdate()">
+    </div>
+
+    <!-- Long Headline -->
+    <div class="fl" style="margin-bottom:12px">
+      <label>長標題 Long Headline（45中字，不可有 !）<span class="char-badge" id="pm-lhl-badge">0/45</span></label>
+      <input type="text" id="pm-lhl" oninput="pmUpdate()">
+    </div>
+
+    <!-- AI for long headline -->
+    <button class="ai-gen-btn" onclick="pmAICopy('lhl')">⚡ AI 生成長標題</button>
+    <div class="ai-result" id="pm-lhl-ai"></div>
+    <div style="display:flex;gap:6px;margin-top:6px;display:none" id="pm-lhl-ai-actions">
+      <button class="btn btn-sm" onclick="copyAI('pm-lhl-ai')">複製</button>
+      <button class="btn btn-sm btn-gold" onclick="useAI('pm-lhl-ai','pm-lhl')">填入</button>
+    </div>
+
+    <!-- Short Headlines -->
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-family:var(--font-display);font-size:8px;letter-spacing:2px;color:var(--gold3)">短標題（15中字，上限15組）</span>
+        <button class="btn btn-sm" onclick="pmAddSHL()">+ 新增</button>
+      </div>
+      <div class="shl-list" id="pm-shl-list"></div>
+    </div>
+
+    <!-- Descriptions -->
+    <div class="fg f1" style="margin-bottom:12px">
+      <div class="fl" style="margin-bottom:8px">
+        <label>說明 1（45中字，不可有 !）<span class="char-badge" id="pm-d1-badge">0/45</span></label>
+        <textarea id="pm-d1" rows="2" oninput="pmUpdate()"></textarea>
+      </div>
+      <div class="fl">
+        <label>說明 2（45中字，不可有 !）<span class="char-badge" id="pm-d2-badge">0/45</span></label>
+        <textarea id="pm-d2" rows="2" oninput="pmUpdate()"></textarea>
+      </div>
+    </div>
+
+    <!-- AI for descriptions -->
+    <button class="ai-gen-btn" onclick="pmAICopy('desc')">⚡ AI 生成說明文字</button>
+    <div class="ai-result" id="pm-desc-ai"></div>
+    <div style="display:flex;gap:6px;margin-top:6px;display:none" id="pm-desc-ai-actions">
+      <button class="btn btn-sm" onclick="copyAI('pm-desc-ai')">複製</button>
+    </div>
+
+    <div class="utm-box" style="margin-top:12px">
+      <div class="section-label" style="margin-bottom:10px;padding-bottom:6px">UTM 設定</div>
+      <div class="fg">
+        <div class="fl"><label>目標網址</label><input type="url" id="pm-url" oninput="pmUpdateUtm()"></div>
+        <div class="fl"><label>utm_campaign</label><input type="text" id="pm-utm-camp" oninput="pmUpdateUtm()"></div>
+        <div class="fl"><label>utm_source</label><input type="text" id="pm-utm-src" value="google" oninput="pmUpdateUtm()"></div>
+        <div class="fl"><label>utm_medium</label><input type="text" id="pm-utm-med" value="cpc" oninput="pmUpdateUtm()"></div>
+      </div>
+      <div class="utm-result" id="pm-utm-result">請先輸入目標網址</div>
+    </div>
+
+    <button class="export-btn" onclick="pmExport()">↓ 匯出 Excel</button>
+  </div>
+
+  <!-- Google Preview -->
+  <div class="preview-pane">
+    <div class="section-label">預覽</div>
+    <div class="g-tab-row">
+      <button class="g-tab active" onclick="pmSetLayout('native',this)">原生大圖</button>
+      <button class="g-tab" onclick="pmSetLayout('list',this)">清單圖文</button>
+      <button class="g-tab" onclick="pmSetLayout('text',this)">搜尋文字</button>
+    </div>
+    <div class="google-mock">
+      <div class="g-ad" id="pm-pv">
+        <div class="g-img" id="pm-pv-img"><span style="color:#aaa;font-size:12px">請上傳圖片</span></div>
+        <div class="g-body">
+          <div class="g-badge">贊助</div>
+          <div class="g-hl" id="pm-pv-hl">這裡是廣告標題</div>
+          <div class="g-logo-row">
+            <div class="g-logo"><img id="pm-pv-logo" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" style="display:none"></div>
+            <div class="g-desc" id="pm-pv-desc">這裡是廣告說明文字</div>
+            <div class="g-chevron">›</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     禾多 HODO
+     ═══════════════════════════════════════ -->
+<div id="tool-hodo" class="tool-panel">
+  <div class="editor-pane">
+    <div class="section-label">禾多移動 · AI 推播 &amp; 猜你喜歡</div>
+    <div class="status-bar" id="hd-status"></div>
+
+    <div class="camp-pick">
+      <span class="camp-pick-label">關聯活動</span>
+      <select id="hd-camp" onchange="hdSyncCamp()"><option value="">— 從 v45 選擇活動 —</option></select>
+    </div>
+
+    <div class="fl" style="margin-bottom:12px">
+      <label>品牌</label>
+      <div class="brand-sel">
+        <div class="brand-opt sel" onclick="hdSetBrand('SST&amp;C',this)">SST&amp;C</div>
+        <div class="brand-opt" onclick="hdSetBrand('ARVOpm',this)">ARVOpm</div>
+      </div>
+    </div>
+
+    <div class="fl" style="margin-bottom:12px">
+      <label>廣告活動名稱</label>
+      <input type="text" id="hd-name" placeholder="例：End_Season_Sale_換季折扣" oninput="hdUpdate()">
+    </div>
+
+    <div class="fg">
+      <div class="fl"><label>刊登開始</label><input type="date" id="hd-start" oninput="hdUpdate()"></div>
+      <div class="fl"><label>刊登結束</label><input type="date" id="hd-end" oninput="hdUpdate()"></div>
+    </div>
+
+    <!-- Mode tabs -->
+    <div style="display:flex;gap:0;margin-bottom:16px;border:1px solid var(--border)">
+      <button id="hd-tab-push" style="flex:1;padding:9px;font-family:var(--font-display);font-size:9px;letter-spacing:2px;border:none;background:var(--gold);color:var(--cream);cursor:pointer" onclick="hdSetMode('push')">📡 推播廣告</button>
+      <button id="hd-tab-scroller" style="flex:1;padding:9px;font-family:var(--font-display);font-size:9px;letter-spacing:2px;border:none;background:var(--cream2);color:var(--gold3);cursor:pointer" onclick="hdSetMode('scroller')">🧩 猜你喜歡</button>
+    </div>
+
+    <!-- Push Mode -->
+    <div id="hd-push-section">
+      <div style="background:var(--cream2);border-left:3px solid var(--border2);padding:8px 12px;font-size:12px;color:var(--ink3);margin-bottom:12px;line-height:1.7">
+        大圖：300×150px · 小圖：100×100px · 標題 20字 · 內文 26字
+      </div>
+      <div class="pmax-assets" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
+        <div class="pmax-asset-box">
+          <label>小圖 (100×100)</label>
+          <div class="pmax-mini" id="hd-push-sm-mini"><span>🖼️</span></div>
+          <input type="file" id="hd-push-sm-input" accept="image/*" style="display:none" onchange="hdHandleImg(this,'push-sm',100,100)">
+          <button class="btn btn-sm" onclick="document.getElementById('hd-push-sm-input').click()">上傳</button>
+        </div>
+        <div class="pmax-asset-box">
+          <label>大圖 (300×150)</label>
+          <div class="pmax-mini" id="hd-push-big-mini"><span>🖼️</span></div>
+          <input type="file" id="hd-push-big-input" accept="image/*" style="display:none" onchange="hdHandleImg(this,'push-big',300,150)">
+          <button class="btn btn-sm" onclick="document.getElementById('hd-push-big-input').click()">上傳</button>
+        </div>
+      </div>
+      <div class="fl" style="margin-bottom:8px">
+        <label>推播標題（20字）<span class="char-badge" id="hd-pt-badge">0/20</span></label>
+        <input type="text" id="hd-pt" oninput="hdUpdate()">
+      </div>
+      <div class="fl" style="margin-bottom:8px">
+        <label>推播內文（26字）<span class="char-badge" id="hd-pb-badge">0/26</span></label>
+        <textarea id="hd-pb" rows="2" oninput="hdUpdate()"></textarea>
+      </div>
+      <button class="ai-gen-btn" onclick="hdAICopy('push')">⚡ AI 生成推播文案</button>
+      <div class="ai-result" id="hd-push-ai"></div>
+      <div style="display:flex;gap:6px;margin-top:6px;display:none" id="hd-push-ai-actions">
+        <button class="btn btn-sm" onclick="copyAI('hd-push-ai')">複製</button>
+      </div>
+    </div>
+
+    <!-- Scroller Mode -->
+    <div id="hd-scroller-section" style="display:none">
+      <div style="background:var(--cream2);border-left:3px solid var(--border2);padding:8px 12px;font-size:12px;color:var(--ink3);margin-bottom:12px;line-height:1.7">
+        主圖：320×250px · Logo：100×100px · 標題 23字
+      </div>
+      <div class="pmax-assets" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
+        <div class="pmax-asset-box">
+          <label>主圖 (320×250)</label>
+          <div class="pmax-mini" id="hd-sc-main-mini"><span>🖼️</span></div>
+          <input type="file" id="hd-sc-main-input" accept="image/*" style="display:none" onchange="hdHandleImg(this,'sc-main',320,250)">
+          <button class="btn btn-sm" onclick="document.getElementById('hd-sc-main-input').click()">上傳</button>
+        </div>
+        <div class="pmax-asset-box">
+          <label>Logo (100×100)</label>
+          <div class="pmax-mini" id="hd-sc-logo-mini"><span>💎</span></div>
+          <input type="file" id="hd-sc-logo-input" accept="image/*" style="display:none" onchange="hdHandleImg(this,'sc-logo',100,100)">
+          <button class="btn btn-sm" onclick="document.getElementById('hd-sc-logo-input').click()">上傳</button>
+        </div>
+      </div>
+      <div class="fl" style="margin-bottom:8px">
+        <label>廣告標題（23字）<span class="char-badge" id="hd-st-badge">0/23</span></label>
+        <input type="text" id="hd-st" oninput="hdUpdate()">
+      </div>
+      <button class="ai-gen-btn" onclick="hdAICopy('scroller')">⚡ AI 生成猜你喜歡文案</button>
+      <div class="ai-result" id="hd-sc-ai"></div>
+      <div style="display:flex;gap:6px;margin-top:6px;display:none" id="hd-sc-ai-actions">
+        <button class="btn btn-sm" onclick="copyAI('hd-sc-ai')">複製</button>
+      </div>
+    </div>
+
+    <div class="fl" style="margin-top:16px;margin-bottom:12px">
+      <label>素材雲端連結</label>
+      <input type="url" id="hd-mat-url" value="https://drive.google.com/drive/folders/14gSxhACwMG8oeqWHYOEELYJnXPJf5gJ9?usp=sharing" oninput="hdUpdate()">
+    </div>
+
+    <div class="fl" style="margin-bottom:16px">
+      <label>目標網址</label>
+      <input type="url" id="hd-url" oninput="hdUpdateUtm()">
+    </div>
+    <div class="utm-result" id="hd-utm-result" style="padding:8px;background:var(--cream2);border:1px solid var(--border);margin-bottom:12px">請先輸入目標網址</div>
+
+    <button class="export-btn" onclick="hdExport()">↓ 匯出 Excel</button>
+  </div>
+
+  <!-- Hodo Preview -->
+  <div class="preview-pane">
+    <div class="section-label">預覽</div>
+    <!-- Push Preview -->
+    <div id="hd-pv-push">
+      <div class="hodo-mock">
+        <div class="push-notif">
+          <div class="push-hd">
+            <div class="push-ico"><img id="hd-pv-push-sm" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" style="display:none"></div>
+            <div style="flex:1;min-width:0">
+              <div class="push-title" id="hd-pv-pt">推播標題預覽</div>
+              <div class="push-body-txt" id="hd-pv-pb">推播內文預覽，控制在26字以內...</div>
+            </div>
+          </div>
+          <div class="push-big" id="hd-pv-push-big">
+            <img id="hd-pv-push-big-img" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" style="display:none">
+            <span id="hd-pv-push-ph">300×150 大圖區域</span>
+          </div>
+          <div class="push-footer"><span>Google Chrome · sstc.com.tw</span><span>▼</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- Scroller Preview -->
+    <div id="hd-pv-scroller" style="display:none">
+      <div class="hodo-mock">
+        <div class="scroller-card">
+          <div class="scroller-img" id="hd-pv-sc-main">
+            <img id="hd-pv-sc-main-img" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" style="display:none">
+            <span id="hd-pv-sc-ph">320×250 主圖區域</span>
+          </div>
+          <div class="scroller-body">
+            <div class="scroller-logo-wrap"><img id="hd-pv-sc-logo" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" style="display:none"></div>
+            <div style="flex:1">
+              <div class="scroller-title" id="hd-pv-st">猜你喜歡廣告標題預覽...</div>
+              <div style="display:inline-block;font-size:10px;border:1px solid #ccc;color:#999;padding:1px 3px;border-radius:2px;margin-top:3px">廣告</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- content -->
+</div><!-- app -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// SHARED UTILITIES
+// ══════════════════════════════════════════════
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+function countCh(s){let n=0;for(const c of(s||'')){n+=/[\u4e00-\u9fa5\u3400-\u4dbf\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af\uff00-\uffef]/.test(c)?1:0.5;}return Math.ceil(n);}
+function escH(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function setBadge(id,cur,max){
+  const el=document.getElementById(id);if(!el)return;
+  el.textContent=max?`${cur}/${max}`:`${cur}字`;
+  el.className='char-badge '+(max?(cur>max?'char-err':cur>max*.85?'char-warn':'char-ok'):'char-ok');
+}
+function buildUtm(base,src,med,camp,content){
+  try{const u=new URL(base);const p=new URLSearchParams(u.search);if(src)p.set('utm_source',src);if(med)p.set('utm_medium',med);if(camp)p.set('utm_campaign',camp);if(content)p.set('utm_content',content);u.search=p.toString();return u.toString();}catch{return '';}
+}
+function copyAI(resultId){
+  const el=document.getElementById(resultId);
+  navigator.clipboard.writeText(el.textContent).then(()=>toast('✓ 已複製')).catch(()=>toast('請手動複製'));
+}
+function useAI(resultId,targetId){
+  const text=document.getElementById(resultId).textContent;
+  const target=document.getElementById(targetId);
+  if(target){
+    target.value=text;
+    target.dispatchEvent(new Event('input',{bubbles:true}));
+    toast('✓ 已填入');
+  }
+}
+function domainFrom(url){try{return new URL(url).hostname.toUpperCase();}catch{return 'EXAMPLE.COM';}}
+function switchTool(name,btn){
+  document.querySelectorAll('.tool-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tool-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tool-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+function selectToolByName(name){
+  const btn=document.querySelector(`.tool-btn[data-tool="${name}"]`);
+  if(btn)switchTool(name,btn);
+}
+
+// ── AI COPY helper ──
+function localCopyFromPrompt(prompt){
+  const read=(label)=>{
+    const m=prompt.match(new RegExp(label+'：([^，\\n]+)'));
+    return m?m[1].trim():'';
+  };
+  const name=read('活動')||'本季精選活動';
+  const disc=read('折扣')||'限時優惠';
+  const summary=read('摘要');
+  const copy=read('文案方向')||summary||'都會質感穿搭';
+  if(prompt.includes('PMAX 長標題')){
+    return `${name}｜${disc}質感登場`.slice(0,45);
+  }
+  if(prompt.includes('PMAX 說明文字')){
+    return `說明1：${disc}精選單品，更新日常穿搭\n說明2：${copy}，立即探索 SST&C`;
+  }
+  if(prompt.includes('手機推播')){
+    return `標題（20中文字以內）：${disc}精選登場\n內文（26中文字以內）：${name}，為日常換上俐落質感`;
+  }
+  if(prompt.includes('猜你喜歡')){
+    return `${name}，質感穿搭推薦`.slice(0,23);
+  }
+  if(prompt.includes('目錄型廣告')){
+    return `${name}\n${disc}精選款式登場\n從上班到週末\n都穿出俐落質感\n#SSTC #質感穿搭`;
+  }
+  return `${name}\n${disc}限時開跑\n以${copy}打造俐落日常\n現在入手精選單品\n#SSTC #質感穿搭`;
+}
+
+function fbsBuildOptions(c){
+  const brand=fbsBrand||'SST&C';
+  const name=(c&&c.name)||'本季精選活動';
+  const disc=(c&&c.discType?c.discType:'限時優惠')+(c&&c.discNum?` ${Math.round(c.discNum*100)}折`:'');
+  const summary=(c&&c.summary)||'精選單品優惠';
+  const angle=(c&&c.mktgCopy)||(c&&c.mktgAd)||(c&&c.mktgNote)||'都會質感穿搭';
+  const shortName=name.replace(/[（）()]/g,'').slice(0,12);
+  const options=[
+    {
+      copy:`${shortName}\n${disc}質感登場\n從上班到週末\n穿出俐落好比例\n#${brand.replace('&','')} #質感穿搭`,
+      headline:`${disc}精選登場`,
+      desc:'質感穿搭更新'
+    },
+    {
+      copy:`為日常換一套新節奏\n${summary}\n以${angle}\n完成通勤與聚會穿搭\n立即探索 ${brand}`,
+      headline:'日常質感升級',
+      desc:'精選優惠開跑'
+    },
+    {
+      copy:`本季衣櫥重點已備妥\n${shortName} 推薦款式\n${disc}限時展開\n俐落線條更好搭配\n#SSTC`,
+      headline:'本季推薦款',
+      desc:'限時優惠中'
+    },
+    {
+      copy:`想讓穿搭更省心\n從 ${brand} 精選開始\n${summary}\n用穩定剪裁穿出專業感\n現在把握${disc}`,
+      headline:'俐落穿搭首選',
+      desc:'立即探索'
+    },
+    {
+      copy:`把優惠留給真正常穿的款式\n${name}\n${disc}\n為通勤、會議、約會\n準備剛剛好的質感`,
+      headline:'精選款式優惠',
+      desc:'為日常準備'
+    }
+  ];
+  return options.map(o=>({
+    copy:o.copy,
+    headline:o.headline.slice(0,20),
+    desc:o.desc.slice(0,15)
+  }));
+}
+
+function fbsSetField(id,value){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.value=value;
+  el.dispatchEvent(new Event('input',{bubbles:true}));
+}
+
+function fbsApplyOption(i,part){
+  const opt=(window._fbsAiOptions||[])[i];
+  if(!opt)return;
+  if(!part||part==='copy')fbsSetField('fbs-cap',opt.copy);
+  if(!part||part==='headline')fbsSetField('fbs-hl',opt.headline);
+  if(!part||part==='desc')fbsSetField('fbs-desc',opt.desc);
+  toast(part?'✓ 已填入':'✓ 已套用這組');
+}
+
+function fbsRenderOptions(options){
+  window._fbsAiOptions=options;
+  const wrap=document.getElementById('fbs-ai-options');
+  const result=document.getElementById('fbs-ai-result');
+  const actions=document.getElementById('fbs-ai-actions');
+  if(result)result.classList.remove('show');
+  if(actions)actions.style.display='none';
+  wrap.innerHTML=options.map((opt,i)=>`
+    <div class="ai-option">
+      <div class="ai-option-head">
+        <div class="ai-option-title">候選 ${i+1}</div>
+        <button class="btn btn-sm btn-gold" onclick="fbsApplyOption(${i})">套用這組</button>
+      </div>
+      <div class="ai-option-body">${escH(opt.copy)}</div>
+      <div class="ai-option-grid">
+        <div class="ai-option-field"><span>HEADLINE</span>${escH(opt.headline)}</div>
+        <div class="ai-option-field"><span>DESCRIPTION</span>${escH(opt.desc)}</div>
+      </div>
+      <div class="ai-option-actions">
+        <button class="btn btn-sm" onclick="fbsApplyOption(${i},'copy')">填入文案</button>
+        <button class="btn btn-sm" onclick="fbsApplyOption(${i},'headline')">填入標題</button>
+        <button class="btn btn-sm" onclick="fbsApplyOption(${i},'desc')">填入說明</button>
+      </div>
+    </div>`).join('');
+}
+
+async function runAI(prompt, resultId, actionsId, btnEl){
+  const resultEl=document.getElementById(resultId);
+  const actionsEl=document.getElementById(actionsId);
+  if(!resultEl)return;
+  if(!window.claude||typeof window.claude.complete!=='function'){
+    resultEl.className='ai-result show';
+    resultEl.textContent=localCopyFromPrompt(prompt);
+    if(actionsEl)actionsEl.style.display='flex';
+    if(btnEl){btnEl.disabled=false;btnEl.textContent='⚡ 重新生成';}
+    return;
+  }
+  if(btnEl){btnEl.disabled=true;btnEl.textContent='生成中…';}
+  resultEl.className='ai-result show';
+  resultEl.innerHTML='<div class="ai-loading">· AI 思考中 ·</div>';
+  if(actionsEl)actionsEl.style.display='none';
+  try{
+    const text=await window.claude.complete({messages:[{role:'user',content:prompt}]});
+    resultEl.textContent=text;
+    if(actionsEl)actionsEl.style.display='flex';
+  }catch(err){
+    resultEl.textContent='生成失敗：'+err.message;
+  }
+  if(btnEl){btnEl.disabled=false;btnEl.textContent='⚡ 重新生成';}
+}
+
+// ── CAMP BRIDGE — read v45 localStorage ──
+let v45Camps=[];
+function loadV45Camps(){
+  try{
+    const seed=[
+      {id:'26SS-001',name:'26SS套裝組合（門市/百貨）',discNum:0.83,discType:'套組價',summary:'正裝3件套 男6980起 女6580起',start:'2026-03-16',end:'2026-06-10'},
+      {id:'26SS-004',name:'春夏新品上市折扣',discNum:0.9,discType:'折數',summary:'新品9折，兩件85折',start:'2026-03-16',end:'2026-04-20'},
+      {id:'26SS-005',name:'購物節（百貨正櫃）',discNum:0.85,discType:'折數',summary:'85折，3件75折，首10日滿萬折600',start:'2026-03-19',end:'2026-06-30'},
+      {id:'26SS-010',name:'618初夏煥新大促',discNum:0.75,discType:'滿額折',summary:'75折，滿$3,000折$300',start:'2026-06-11',end:'2026-06-21'},
+      {id:'26AW-004',name:'周年慶（百貨）',discNum:0.85,discType:'折數',summary:'85折，3件75折',start:'2026-09-19',end:'2026-12-06'},
+      {id:'26AW-007',name:'雙十一',discNum:0.85,discType:'折數',summary:'1件85折，2件75折，滿$11,111折$1,111',start:'2026-11-06',end:'2026-11-12'},
+      {id:'26AW-009',name:'BOXING DAY',discNum:0.5,discType:'買一送一',summary:'正櫃買一送一',start:'2026-12-25',end:'2027-01-04'},
+    ];
+    const shared=JSON.parse(localStorage.getItem('sstc_adstudio_campaigns_v1')||'[]');
+    if(Array.isArray(shared)&&shared.length){
+      v45Camps=shared.filter(c=>c&&c.id);
+    }else{
+      // Fallback for older v45 files that only published local edits.
+      const localC=JSON.parse(localStorage.getItem('sstc_local_c')||'[]');
+      v45Camps=[...seed,...localC.filter(c=>!seed.find(s=>s.id===c.id))];
+    }
+  }catch(e){v45Camps=[];}
+  // Populate all camp selects
+  const opts='<option value="">— 從 v45 選擇活動 —</option>'+v45Camps.map(c=>`<option value="${c.id}">${c.id} · ${c.name}</option>`).join('');
+  ['fbs-camp','fbc-camp','pm-camp','hd-camp'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
+  const badge=document.getElementById('camp-sync-badge');
+  if(badge){badge.textContent=v45Camps.length+' 個活動';badge.style.display='';}
+}
+
+function getCamp(id){return v45Camps.find(c=>c.id===id)||null;}
+
+function applyCampaignParam(){
+  const params=new URLSearchParams(location.search);
+  const tool=params.get('tool')||'google-pmax';
+  const campaign=params.get('campaign')||'';
+  selectToolByName(tool);
+  if(!campaign)return;
+  const syncMap={
+    'fb-single':['fbs-camp',fbsSyncCamp],
+    'fb-catalog':['fbc-camp',fbcSyncCamp],
+    'google-pmax':['pm-camp',pmSyncCamp],
+    'hodo':['hd-camp',hdSyncCamp]
+  };
+  const active=syncMap[tool]||syncMap['google-pmax'];
+  const el=document.getElementById(active[0]);
+  if(el){
+    el.value=campaign;
+    active[1]();
+  }
+}
+
+function campContext(c,fallback){
+  if(!c)return fallback;
+  const disc=c.discNum?`${Math.round((c.discNum||1)*100)}折`:'';
+  const parts=[
+    `活動：${c.name||c.id}`,
+    c.start||c.end?`期間：${c.start||''}~${c.end||''}`:'',
+    c.discType||disc?`折扣：${c.discType||''}${disc?`（${disc}）`:''}`:'',
+    c.summary?`摘要：${c.summary}`:'',
+    c.mktgCopy?`文案方向：${c.mktgCopy}`:'',
+    c.mktgAd?`廣告投放：${c.mktgAd}`:'',
+    c.mktgEdm?`EDM/推播：${c.mktgEdm}`:'',
+    c.mktgNote?`行銷備注：${c.mktgNote}`:''
+  ].filter(Boolean);
+  return parts.join('，');
+}
+
+// ══════════════════════════════════════════════
+// FB SINGLE IMAGE
+// ══════════════════════════════════════════════
+let fbsBrand='SST&C',fbsImg=null;
+
+function fbsSetBrand(b,el){fbsBrand=b;document.querySelectorAll('#tool-fb-single .brand-opt').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');document.getElementById('fbs-pv-brand').textContent=b;fbsUpdate();}
+function fbsSyncCamp(){
+  const c=getCamp(document.getElementById('fbs-camp').value);if(!c)return;
+  document.getElementById('fbs-ct').value=c.name.slice(0,15);
+  document.getElementById('fbs-start').value=c.start;
+  document.getElementById('fbs-end').value=c.end;
+  document.getElementById('fbs-utm-camp').value=c.id;
+  fbsUpdate();toast('✓ 已載入活動資料');
+}
+function fbsHandleImg(input){
+  const file=input.files[0];if(!file)return;
+  const url=URL.createObjectURL(file);
+  const img=new Image();
+  img.onload=()=>{
+    fbsImg={url,w:img.width,h:img.height,size:(file.size/1024/1024).toFixed(2)};
+    const ok=(img.width===1200&&(img.height===628||img.height===1200));
+    document.getElementById('fbs-img-tiles').innerHTML=`
+      <div class="img-tile">
+        <div class="img-thumb"><img src="${url}"><button class="img-remove" onclick="fbsRemoveImg()">×</button></div>
+        <div class="img-meta">
+          <div>${img.width}×${img.height}</div>
+          <div>${fbsImg.size}MB</div>
+          <div class="${ok?'spec-ok':'spec-warn'}">${ok?'✓ 尺寸符合':'⚠ 建議確認尺寸'}</div>
+        </div>
+      </div>`;
+    document.getElementById('fbs-pv-img').innerHTML=`<img src="${url}">`;
+    fbsUpdate();
+  };
+  img.src=url;input.value='';
+}
+function fbsRemoveImg(){fbsImg=null;document.getElementById('fbs-img-tiles').innerHTML='';document.getElementById('fbs-pv-img').innerHTML='尚未上傳圖片';fbsUpdate();}
+function fbsUpdateUtm(){
+  const full=buildUtm(document.getElementById('fbs-url').value,document.getElementById('fbs-utm-src').value,document.getElementById('fbs-utm-med').value,document.getElementById('fbs-utm-camp').value,'');
+  document.getElementById('fbs-utm-result').textContent=full||'請先輸入目標網址';
+  const link=document.getElementById('fbs-pv-link');
+  const hl=document.getElementById('fbs-hl').value,desc=document.getElementById('fbs-desc').value;
+  if(full||hl||desc){link.style.display='block';link.href=full||'#';document.getElementById('fbs-pv-domain').textContent=full?domainFrom(full):'EXAMPLE.COM';document.getElementById('fbs-pv-title').textContent=hl||'標題';document.getElementById('fbs-pv-desc').textContent=desc||'說明';}
+  else link.style.display='none';
+}
+function fbsUpdate(){
+  // char counts
+  const ct=document.getElementById('fbs-ct').value,cap=document.getElementById('fbs-cap').value,hl=document.getElementById('fbs-hl').value,desc=document.getElementById('fbs-desc').value;
+  setBadge('fbs-ct-badge',countCh(ct),15);
+  setBadge('fbs-cap-badge',countCh(cap),null);
+  setBadge('fbs-hl-badge',countCh(hl),20);
+  setBadge('fbs-desc-badge',countCh(desc),15);
+  // preview
+  document.getElementById('fbs-pv-cap').innerHTML=cap?cap.replace(/\n/g,'<br>'):'請在左側輸入主要文案';
+  fbsUpdateUtm();
+  // status
+  const pills=[];
+  if(fbsBrand)pills.push(['sp-ok','品牌 '+fbsBrand]);else pills.push(['sp-pend','請選擇品牌']);
+  if(ct)pills.push(['sp-ok','文案標題']);else pills.push(['sp-pend','文案標題待填']);
+  if(cap)pills.push(['sp-ok','文案 '+countCh(cap)+'字']);else pills.push(['sp-pend','文案待填']);
+  if(fbsImg)pills.push(['sp-ok','圖片已上傳']);else pills.push(['sp-pend','圖片待上傳']);
+  document.getElementById('fbs-status').innerHTML=pills.map(([cls,txt])=>`<span class="status-pill ${cls}">${txt}</span>`).join('');
+}
+async function fbsAICopy(){
+  const campId=document.getElementById('fbs-camp').value;
+  const c=getCamp(campId);
+  const btn=document.querySelector('#tool-fb-single .ai-gen-btn');
+  if(btn){btn.disabled=true;btn.textContent='生成中…';}
+  try{
+    const options=fbsBuildOptions(c);
+    fbsRenderOptions(options);
+  }catch(err){
+    const result=document.getElementById('fbs-ai-result');
+    if(result){result.className='ai-result show';result.textContent='生成失敗：'+err.message;}
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='⚡ 重新生成 5 組候選';}
+  }
+}
+function fbsExport(){
+  if(!fbsBrand){toast('❌ 請選擇品牌');return;}
+  const ct=document.getElementById('fbs-ct').value.trim();if(!ct){toast('❌ 請填文案標題');return;}
+  const cap=document.getElementById('fbs-cap').value.trim();if(!cap){toast('❌ 請填文案');return;}
+  const rows=[['品牌',fbsBrand,''],['刊登時間',`${document.getElementById('fbs-start').value}~${document.getElementById('fbs-end').value}`,''],[' 文案標題',ct,`${countCh(ct)}/15字`],['文案(Primary Text)',cap,`${countCh(cap)}字`],['圖片',fbsImg?`${fbsImg.w}×${fbsImg.h} ${fbsImg.size}MB`:'未上傳',''],['素材連結',document.getElementById('fbs-mat-url').value,''],['標題(Headline)',document.getElementById('fbs-hl').value,`${countCh(document.getElementById('fbs-hl').value)}/20字`],['連結說明',document.getElementById('fbs-desc').value,''],['完整UTM網址',document.getElementById('fbs-utm-result').textContent,'']];
+  const ws=XLSX.utils.aoa_to_sheet([['項目','內容','備注'],...rows]);ws['!cols']=[{wch:16},{wch:60},{wch:20}];
+  const wb=XLSX.utils.book_new();const d=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  XLSX.utils.book_append_sheet(wb,ws,`${d}_${fbsBrand}_FB單圖`.slice(0,31));
+  XLSX.writeFile(wb,`${d}_${fbsBrand}_${ct}_FB單圖廣告.xlsx`);toast('✓ 已匯出');
+}
+
+// ══════════════════════════════════════════════
+// FB CATALOG
+// ══════════════════════════════════════════════
+let fbcBrand='SST&C',fbcAssets=[],fbcProducts=[],fbcSlide=0,fbcCandidates=[];
+
+function fbcSetBrand(b,el){fbcBrand=b;document.querySelectorAll('#tool-fb-catalog .brand-opt').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');fbcUpdate();}
+function fbcSyncCamp(){
+  const c=getCamp(document.getElementById('fbc-camp').value);if(!c)return;
+  document.getElementById('fbc-ct').value=c.name.slice(0,15);
+  document.getElementById('fbc-start').value=c.start;document.getElementById('fbc-end').value=c.end;
+  document.getElementById('fbc-utm-camp').value=c.id;fbcUpdate();toast('✓ 已載入活動資料');
+}
+function fbcHandleAssets(input){
+  const files=Array.from(input.files||[]);if(!files.length)return;
+  files.forEach(file=>{
+    const url=URL.createObjectURL(file);const isVid=file.type.startsWith('video/');
+    fbcAssets.push({url,isVid,size:(file.size/1024/1024).toFixed(2),name:file.name});
+  });
+  fbcRenderAssetTiles();fbcUpdate();input.value='';
+}
+function fbcRenderAssetTiles(){
+  document.getElementById('fbc-asset-tiles').innerHTML=fbcAssets.map((a,i)=>`
+    <div class="img-tile">
+      <div class="img-thumb">${a.isVid?`<video src="${a.url}" muted></video>`:`<img src="${a.url}">`}<button class="img-remove" onclick="fbcRemoveAsset(${i})">×</button></div>
+      <div class="img-meta"><div>${a.isVid?'🎬 影片':'📷 圖片'}</div><div>${a.size}MB</div></div>
+    </div>`).join('');
+}
+function fbcRemoveAsset(i){fbcAssets.splice(i,1);fbcRenderAssetTiles();fbcUpdate();}
+function fbcUpdateUtm(){
+  const full=buildUtm(document.getElementById('fbc-url').value,document.getElementById('fbc-utm-src').value,document.getElementById('fbc-utm-med').value,document.getElementById('fbc-utm-camp').value,'');
+  document.getElementById('fbc-utm-result').textContent=full||'請先輸入目標網址';
+  fbcApplyProductUtms(false);
+}
+function fbcProductUrl(raw,name){
+  if(!raw)return'';
+  let src=document.getElementById('fbc-utm-src').value||'';
+  let med=document.getElementById('fbc-utm-med').value||'';
+  let camp=document.getElementById('fbc-utm-camp').value||'';
+  try{
+    const target=new URL(document.getElementById('fbc-url').value);
+    src=src||target.searchParams.get('utm_source')||'facebook';
+    med=med||target.searchParams.get('utm_medium')||'cpc';
+    camp=camp||target.searchParams.get('utm_campaign')||'catalog';
+  }catch{
+    src=src||'facebook';med=med||'cpc';camp=camp||'catalog';
+  }
+  const content=(name||'product').replace(/[^\w\u4e00-\u9fa5]+/g,'_').slice(0,40);
+  try{
+    const u=new URL(raw);
+    ['utm_source','utm_medium','utm_campaign','utm_content'].forEach(k=>u.searchParams.delete(k));
+    return buildUtm(u.toString(),src,med,camp,content)||raw;
+  }catch{return raw;}
+}
+function fbcApplyProductUtms(showToast=true){
+  fbcProducts=fbcProducts.map(p=>p.url?{...p,url:fbcProductUrl(p.url,p.name)}:p);
+  if(showToast)toast('✓ 商品 URL 已更新 UTM');
+}
+function fbcAddProduct(){
+  fbcProducts.push({name:'',price:'',url:''});fbcRenderProducts();fbcUpdate();
+}
+function fbcRenderProducts(){
+  if(!fbcProducts.length){for(let i=0;i<3;i++)fbcProducts.push({name:'',price:'',url:''});}
+  document.getElementById('fbc-products').innerHTML=fbcProducts.map((p,i)=>`
+    <div class="product-card">
+      <div class="product-hd">
+        <span class="product-num">商品 ${i+1}</span>
+        ${fbcProducts.length>3?`<button class="btn btn-sm btn-danger" onclick="fbcDelProduct(${i})">刪</button>`:''}
+      </div>
+      <div class="fg f1">
+        <div class="fl"><label>商品名稱 *</label><input type="text" value="${escH(p.name)}" oninput="fbcProducts[${i}].name=this.value;fbcUpdate()"></div>
+        <div class="fl"><label>商品價格</label><input type="text" value="${escH(p.price)}" oninput="fbcProducts[${i}].price=this.value;fbcUpdate()"></div>
+        <div class="fl"><label>商品連結 *</label><input type="url" value="${escH(p.url)}" oninput="fbcProducts[${i}].url=this.value;fbcUpdate()" onchange="fbcProducts[${i}].url=fbcProductUrl(this.value,fbcProducts[${i}].name);fbcRenderProducts();fbcUpdate()" onblur="fbcProducts[${i}].url=fbcProductUrl(this.value,fbcProducts[${i}].name);fbcRenderProducts();fbcUpdate()"></div>
+      </div>
+    </div>`).join('');
+  fbcUpdateCarousel();
+}
+function fbcDelProduct(i){if(fbcProducts.length<=3){toast('至少需要3個商品');return;}fbcProducts.splice(i,1);fbcRenderProducts();}
+function fbcUpdateCarousel(){
+  const car=document.getElementById('fbc-carousel');
+  const nav=document.getElementById('fbc-carousel-nav');
+  if(!fbcProducts.length||!fbcProducts.some(p=>p.name)){car.innerHTML='<div class="carousel-slide active"><div class="carousel-img"><span>📦 請新增商品</span></div></div>';nav.innerHTML='';return;}
+  car.innerHTML=fbcProducts.map((p,i)=>`
+    <div class="carousel-slide ${i===0?'active':''}">
+      <a class="carousel-img" href="${escH(p.url)||'#'}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">
+        <div style="padding:12px;text-align:center">
+          <div style="font-size:11px;color:#65676b;border:1px solid #e4e6eb;padding:2px 6px;border-radius:10px;display:inline-block;margin-bottom:8px">📦 Catalog 自動帶入</div>
+          <div style="font-weight:600;color:#050505">${escH(p.name)||'商品名稱'}</div>
+          <div style="font-size:11px;color:#1877f2;margin-top:6px">點擊開啟商品</div>
+        </div>
+      </a>
+      <div class="carousel-info">
+        <a href="${escH(p.url)||'#'}" target="_blank" rel="noopener" style="display:block;text-decoration:none;color:inherit">
+          <div style="font-size:14px;font-weight:600;color:#050505;margin-bottom:4px">${escH(p.name)||'商品名稱'}</div>
+          ${p.price?`<div style="font-size:16px;font-weight:700;color:#1877f2">${escH(p.price)}</div>`:''}
+        </a>
+        <a href="${escH(p.url)||'#'}" style="display:inline-block;margin-top:8px;padding:7px 14px;background:#1877f2;color:white;font-size:13px;font-weight:600;text-decoration:none;border-radius:4px">立即購買</a>
+      </div>
+    </div>`).join('');
+  if(fbcProducts.length>1){
+    nav.innerHTML=fbcProducts.map((_,i)=>`<div class="c-dot ${i===0?'active':''}" onclick="fbcGoSlide(${i})"></div>`).join('');
+  }else nav.innerHTML='';
+  fbcSlide=0;
+}
+function fbcGoSlide(i){
+  fbcSlide=i;
+  document.querySelectorAll('#fbc-carousel .carousel-slide').forEach((s,idx)=>s.classList.toggle('active',idx===i));
+  document.querySelectorAll('#fbc-carousel-nav .c-dot').forEach((d,idx)=>d.classList.toggle('active',idx===i));
+}
+function fbcUpdate(){
+  const ct=document.getElementById('fbc-ct').value,cap=document.getElementById('fbc-cap').value;
+  setBadge('fbc-ct-badge',countCh(ct),15);setBadge('fbc-cap-badge',countCh(cap),null);
+  setBadge('fbc-hl-badge',countCh(document.getElementById('fbc-hl').value),40);
+  setBadge('fbc-desc-badge',countCh(document.getElementById('fbc-desc').value),30);
+  document.getElementById('fbc-pv-cap').innerHTML=cap?cap.replace(/\n/g,'<br>'):'請輸入主要文案';
+  fbcUpdateCarousel();fbcUpdateUtm();
+  const pills=[];
+  if(fbcBrand)pills.push(['sp-ok','品牌 '+fbcBrand]);
+  if(cap)pills.push(['sp-ok','文案 '+countCh(cap)+'字']);else pills.push(['sp-pend','文案待填']);
+  const filled=fbcProducts.filter(p=>p.name&&p.url).length;
+  pills.push([filled>=3?'sp-ok':'sp-warn',`商品 ${filled}/3`]);
+  document.getElementById('fbc-status').innerHTML=pills.map(([cls,txt])=>`<span class="status-pill ${cls}">${txt}</span>`).join('');
+}
+function fbcBuildOptions(c){
+  const profile=fbcBrand==='ARVOpm'
+    ? {brand:'ARVOpm',tone:'更年輕、俐落、帶一點午後都會感',aud:'重視日常搭配與輕正式穿著的女性客群',tag:'#ARVOpm'}
+    : {brand:'SST&C',tone:'成熟、質感、都會商務與生活兼具',aud:'25-45歲重視剪裁、場合感與耐穿度的上班族',tag:'#SSTC'};
+  const name=(c&&c.name)||'本季精選';
+  const disc=(c&&c.discType?c.discType:'限時優惠')+(c&&c.discNum?` ${Math.round(c.discNum*100)}折`:'');
+  const productNames=fbcProducts.filter(p=>p.name).slice(0,3).map(p=>p.name).join('、');
+  const focus=productNames||((c&&c.summary)||'精選商品');
+  const angle=(c&&c.mktgCopy)||(c&&c.mktgAd)||(c&&c.mktgNote)||'從通勤、會議到週末安排，都能維持俐落質感';
+  const options=[
+    {copy:`不是只換季\n是把衣櫥重新整理成\n更適合現在的樣子\n${focus}\n${disc}同步展開\n${profile.tag} #質感穿搭`,headline:`${profile.brand}新季精選`,desc:'質感衣櫥更新'},
+    {copy:`給${profile.aud}\n一組更省心的搭配選擇\n${name}\n從商品目錄直接挑款\n把${profile.tone}穿進日常`,headline:'通勤到週末皆宜',desc:'一鍵瀏覽精選'},
+    {copy:`如果只想挑真正會常穿的款式\n先看這一批\n${focus}\n搭配${disc}\n讓每一次出門都更俐落`,headline:'常穿款式推薦',desc:'耐看好搭精選'},
+    {copy:`剪裁、比例、場合感\n是 ${profile.brand} 一直在意的事\n${angle}\n這次用目錄一次看齊`,headline:'剪裁與場合感',desc:'精選款式一次看'},
+    {copy:`從第一眼的質感\n到每天穿的舒適度\n${name} 已整理好\n現在瀏覽商品目錄\n找到最適合你的那一件`,headline:'找到適合的款',desc:'立即瀏覽目錄'}
+  ];
+  return options.map(o=>({copy:o.copy,headline:o.headline.slice(0,40),desc:o.desc.slice(0,30)}));
+}
+function fbcApplyOption(i,part){
+  const opt=(window._fbcAiOptions||[])[i];if(!opt)return;
+  if(!part||part==='copy')fbsSetField('fbc-cap',opt.copy);
+  if(!part||part==='headline')fbsSetField('fbc-hl',opt.headline);
+  if(!part||part==='desc')fbsSetField('fbc-desc',opt.desc);
+  toast(part?'✓ 已填入':'✓ 已套用這組');
+}
+function fbcRenderOptions(options){
+  window._fbcAiOptions=options;
+  const wrap=document.getElementById('fbc-ai-options');
+  const result=document.getElementById('fbc-ai-result');
+  const actions=document.getElementById('fbc-ai-actions');
+  if(result)result.classList.remove('show');
+  if(actions)actions.style.display='none';
+  wrap.innerHTML=options.map((opt,i)=>`
+    <div class="ai-option">
+      <div class="ai-option-head">
+        <div class="ai-option-title">候選 ${i+1}</div>
+        <button class="btn btn-sm btn-gold" onclick="fbcApplyOption(${i})">套用這組</button>
+      </div>
+      <div class="ai-option-body">${escH(opt.copy)}</div>
+      <div class="ai-option-grid">
+        <div class="ai-option-field"><span>HEADLINE</span>${escH(opt.headline)}</div>
+        <div class="ai-option-field"><span>DESCRIPTION</span>${escH(opt.desc)}</div>
+      </div>
+      <div class="ai-option-actions">
+        <button class="btn btn-sm" onclick="fbcApplyOption(${i},'copy')">填入文案</button>
+        <button class="btn btn-sm" onclick="fbcApplyOption(${i},'headline')">填入標題</button>
+        <button class="btn btn-sm" onclick="fbcApplyOption(${i},'desc')">填入說明</button>
+      </div>
+    </div>`).join('');
+}
+function fbcPresetCategory(url){
+  document.getElementById('fbc-cat-url').value=url;
+  toast('✓ 已帶入分類網址');
+}
+function fbcOpenCategory(){
+  const url=document.getElementById('fbc-cat-url').value.trim();
+  if(!url){toast('請先輸入分類網址');return;}
+  window.open(url,'_blank');
+}
+function fbcCandidateFromUrl(url,name='',price=''){
+  const clean=url.trim();
+  if(!clean)return null;
+  const m=clean.match(/SalePage\/(?:Index|index)\/(\d+)/);
+  const id=m?m[1]:'';
+  return {name:name||`${fbcBrand} 商品 ${id||fbcCandidates.length+1}`,price,url:fbcProductUrl(clean,name||id),checked:true};
+}
+function fbcRenderCandidates(){
+  const wrap=document.getElementById('fbc-candidates');
+  if(!wrap)return;
+  if(!fbcCandidates.length){wrap.innerHTML='';return;}
+  wrap.innerHTML=fbcCandidates.map((p,i)=>`
+    <label class="catalog-candidate">
+      <input type="checkbox" ${p.checked?'checked':''} onchange="fbcCandidates[${i}].checked=this.checked">
+      <div>
+        <div class="catalog-candidate-title">${escH(p.name)}</div>
+        ${p.price?`<div class="catalog-candidate-title" style="font-weight:400">${escH(p.price)}</div>`:''}
+        <div class="catalog-candidate-url">${escH(p.url)}</div>
+      </div>
+    </label>`).join('');
+}
+function fbcSetCandidates(list,msg){
+  const seen=new Set();
+  fbcCandidates=list.filter(p=>p&&p.url&&!seen.has(p.url)&&seen.add(p.url)).slice(0,30);
+  fbcRenderCandidates();
+  toast(msg||`✓ 找到 ${fbcCandidates.length} 個商品`);
+}
+async function fbcLoadCategory(){
+  const input=document.getElementById('fbc-cat-url');
+  const url=input.value.trim();
+  if(!url){toast('請先輸入分類網址');return;}
+  if(/SalePage\/(?:Index|index)\/\d+/.test(url)){
+    fbcSetCandidates([fbcCandidateFromUrl(url)],'✓ 已解析商品連結');
+    return;
+  }
+  const box=document.getElementById('fbc-candidates');
+  box.innerHTML='<div class="ai-loading">讀取分類中…</div>';
+  try{
+    const res=await fetch(url,{mode:'cors'});
+    const html=await res.text();
+    const links=[...html.matchAll(/https?:\/\/shop\.[^"'<> ]+\/SalePage\/(?:Index|index)\/\d+[^"'<> ]*/g)].map(m=>m[0]);
+    const rel=[...html.matchAll(/href=["']([^"']*\/SalePage\/(?:Index|index)\/\d+[^"']*)["']/g)].map(m=>new URL(m[1],url).toString());
+    const all=[...links,...rel].map(u=>u.replace(/&amp;/g,'&'));
+    if(!all.length)throw new Error('分類頁未提供可直接讀取的商品連結');
+    fbcSetCandidates(all.map(u=>fbcCandidateFromUrl(u)),'✓ 已讀取分類商品');
+  }catch(err){
+    box.innerHTML=`<div class="ai-result show" style="display:block">商城可能阻擋跨網域讀取。請按「開啟官網」到分類頁複製商品連結，貼到上方文字框後按「解析貼上商品」。</div>`;
+  }
+}
+function fbcImportPastedProducts(){
+  const text=document.getElementById('fbc-product-paste').value.trim();
+  if(!text){toast('請先貼上商品資料');return;}
+  const list=[];
+  text.split(/\n+/).forEach(line=>{
+    const parts=line.split(/[｜|\t,]/).map(s=>s.trim()).filter(Boolean);
+    const urlPart=parts.find(p=>/^https?:\/\//.test(p));
+    if(!urlPart)return;
+    const rest=parts.filter(p=>p!==urlPart);
+    list.push(fbcCandidateFromUrl(urlPart,rest[0]||'',rest[1]||''));
+  });
+  if(!list.length){toast('沒有解析到商品網址');return;}
+  fbcSetCandidates(list,`✓ 已解析 ${list.length} 個商品`);
+}
+function fbcAddSelectedProducts(){
+  const selected=fbcCandidates.filter(p=>p.checked);
+  if(!selected.length){toast('請先勾選商品');return;}
+  const blanks=fbcProducts.filter(p=>!p.name&&!p.url).length;
+  if(blanks===fbcProducts.length)fbcProducts=[];
+  selected.forEach(p=>fbcProducts.push({name:p.name,price:p.price,url:fbcProductUrl(p.url,p.name)}));
+  fbcRenderProducts();fbcUpdate();
+  toast(`✓ 已加入 ${selected.length} 個商品`);
+}
+async function fbcAICopy(){
+  const c=getCamp(document.getElementById('fbc-camp').value);
+  const btn=document.querySelector('#tool-fb-catalog .ai-gen-btn');
+  if(btn){btn.disabled=true;btn.textContent='生成中…';}
+  try{fbcRenderOptions(fbcBuildOptions(c));}
+  catch(err){const result=document.getElementById('fbc-ai-result');if(result){result.className='ai-result show';result.textContent='生成失敗：'+err.message;}}
+  finally{if(btn){btn.disabled=false;btn.textContent='⚡ 重新生成 5 組候選';}}
+}
+function fbcExport(){
+  const ct=document.getElementById('fbc-ct').value.trim();if(!ct){toast('❌ 請填文案標題');return;}
+  const cap=document.getElementById('fbc-cap').value.trim();if(!cap){toast('❌ 請填文案');return;}
+  const filled=fbcProducts.filter(p=>p.name&&p.url);if(filled.length<3){toast('❌ 商品至少需3個完整');return;}
+  const rows=[['品牌',fbcBrand,''],['刊登時間',`${document.getElementById('fbc-start').value}~${document.getElementById('fbc-end').value}`,''],['文案標題',ct,''],['文案',cap,''],['素材連結',document.getElementById('fbc-mat-url').value,''],['標題',document.getElementById('fbc-hl').value,''],['連結說明',document.getElementById('fbc-desc').value,''],['完整UTM',document.getElementById('fbc-utm-result').textContent,''],['商品數',filled.length,'至少3個'],...filled.map((p,i)=>[`商品${i+1}`,`${p.name}｜${p.price||'—'}｜${p.url}`,''])];
+  const ws=XLSX.utils.aoa_to_sheet([['項目','內容','備注'],...rows]);ws['!cols']=[{wch:12},{wch:64},{wch:16}];
+  const wb=XLSX.utils.book_new();const d=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  XLSX.utils.book_append_sheet(wb,ws,`${d}_${fbcBrand}_FB目錄`.slice(0,31));
+  XLSX.writeFile(wb,`${d}_${fbcBrand}_${ct}_FB目錄廣告.xlsx`);toast('✓ 已匯出');
+}
+
+// ══════════════════════════════════════════════
+// GOOGLE PMAX
+// ══════════════════════════════════════════════
+let pmBrand='SST&C',pmAssets={land:null,sq:null,logo:null},pmVideos=[],pmSHLs=[],pmLayout='native';
+
+function pmSetBrand(b,el){pmBrand=b;document.querySelectorAll('#tool-google-pmax .brand-opt').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');pmUpdate();}
+function pmSyncCamp(){
+  const c=getCamp(document.getElementById('pm-camp').value);if(!c)return;
+  document.getElementById('pm-name').value=c.id+'_'+c.name.slice(0,20).replace(/\s/g,'_');
+  document.getElementById('pm-start').value=c.start;document.getElementById('pm-end').value=c.end;
+  document.getElementById('pm-utm-camp').value=c.id;pmUpdate();toast('✓ 已載入活動資料');
+}
+function pmHandleImg(input,type){
+  const file=input.files[0];if(!file)return;
+  const url=URL.createObjectURL(file);const img=new Image();
+  img.onload=()=>{
+    const sizeOk=file.size<5*1024*1024;
+    let dimOk=false;
+    if(type==='land')dimOk=(img.width===1200&&img.height===628);
+    else dimOk=(img.width===1200&&img.height===1200);
+    pmAssets[type]={url,w:img.width,h:img.height,sizeOk,dimOk};
+    const miniId='pm-'+type+'-mini';
+    document.getElementById(miniId).innerHTML=`<img src="${url}"><div style="position:absolute;bottom:2px;left:0;width:100%;text-align:center;background:rgba(255,255,255,.9);font-size:9px;padding:1px">${img.width}×${img.height} <span class="${dimOk?'spec-ok':'spec-warn'}">${dimOk?'✓':'⚠'}</span></div>`;
+    if(type==='logo'){const pvLogo=document.getElementById('pm-pv-logo');pvLogo.src=url;pvLogo.style.display='block';}
+    else if(type==='land'||type==='sq'){const pvImg=document.getElementById('pm-pv-img');pvImg.innerHTML=`<img src="${url}">` ;}
+    pmUpdate();
+  };img.src=url;input.value='';
+}
+function pmHandleVideo(input){
+  const file=input.files[0];if(!file)return;
+  if(pmVideos.length>=5){toast('最多5支影片');return;}
+  const url=URL.createObjectURL(file);
+  const id=Date.now();
+  pmVideos.push({id,url,size:(file.size/1024/1024).toFixed(2)});
+  pmRenderVideos();pmUpdate();input.value='';
+}
+function pmRenderVideos(){
+  document.getElementById('pm-vid-count').textContent=pmVideos.length;
+  document.getElementById('pm-video-list').innerHTML=pmVideos.map(v=>`
+    <div class="video-slot">
+      <div class="video-thumb"><video src="${v.url}" muted></video></div>
+      <div class="video-info">影片 · ${v.size}MB</div>
+      <button class="btn btn-sm" onclick="pmRemoveVideo(${v.id})">刪</button>
+    </div>`).join('');
+}
+function pmRemoveVideo(id){pmVideos=pmVideos.filter(v=>v.id!==id);pmRenderVideos();pmUpdate();}
+function pmAddSHL(){
+  if(pmSHLs.length>=15){toast('最多15組');return;}
+  const i=pmSHLs.length;pmSHLs.push('');
+  const list=document.getElementById('pm-shl-list');
+  const div=document.createElement('div');div.className='shl-row';div.id='pm-shl-row-'+i;
+  div.innerHTML=`<input type="text" placeholder="短標題 ${i+1}（15中字）" oninput="pmSHLs[${i}]=this.value;pmValidateSHL(${i},this)"><button class="shl-del" onclick="pmRemoveSHL(${i})">×</button>`;
+  list.appendChild(div);
+}
+function pmValidateSHL(i,el){
+  const n=countCh(el.value);const ok=n<=15&&!el.value.includes('!')&&!el.value.includes('！');
+  el.style.borderColor=ok||!el.value?'':'var(--amber)';pmUpdate();
+}
+function pmRemoveSHL(i){
+  pmSHLs.splice(i,1);
+  const list=document.getElementById('pm-shl-list');
+  while(list.firstChild)list.removeChild(list.firstChild);
+  const tmp=[...pmSHLs];pmSHLs=[];tmp.forEach(()=>pmAddSHL());
+  tmp.forEach((v,j)=>{const inp=list.querySelectorAll('input')[j];if(inp){inp.value=v;pmSHLs[j]=v;}});
+  pmUpdate();
+}
+function pmUpdateUtm(){
+  const full=buildUtm(document.getElementById('pm-url').value,document.getElementById('pm-utm-src').value,document.getElementById('pm-utm-med').value,document.getElementById('pm-utm-camp').value,'');
+  document.getElementById('pm-utm-result').textContent=full||'請先輸入目標網址';
+}
+function pmSetLayout(l,btn){
+  pmLayout=l;
+  document.querySelectorAll('.g-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+  const pv=document.getElementById('pm-pv');
+  const img=document.getElementById('pm-pv-img');
+  if(l==='text'){img.style.display='none';}
+  else{img.style.display='';if(l==='list'){img.style.width='100px';img.style.height='100px';img.style.float='left';img.style.margin='0 10px 0 0';}else{img.style.width='100%';img.style.height='';img.style.float='none';img.style.margin='0';}}
+}
+function pmUpdate(){
+  const lhl=document.getElementById('pm-lhl').value,d1=document.getElementById('pm-d1').value,d2=document.getElementById('pm-d2').value;
+  const lhlN=countCh(lhl),d1N=countCh(d1),d2N=countCh(d2);
+  setBadge('pm-lhl-badge',lhlN,45);setBadge('pm-d1-badge',d1N,45);setBadge('pm-d2-badge',d2N,45);
+  const hasExcl=(s)=>s.includes('!')||s.includes('！');
+  if(hasExcl(lhl))document.getElementById('pm-lhl').style.borderColor='var(--amber)';else document.getElementById('pm-lhl').style.borderColor='';
+  // preview
+  document.getElementById('pm-pv-hl').textContent=lhl||'這裡是廣告標題';
+  document.getElementById('pm-pv-desc').textContent=d1||'這裡是廣告說明文字';
+  pmUpdateUtm();
+  // status
+  const pills=[];
+  if(pmBrand)pills.push(['sp-ok','品牌 '+pmBrand]);
+  if(pmAssets.land&&pmAssets.sq)pills.push(['sp-ok','圖片已上傳']);else pills.push(['sp-warn','需上傳橫式+正方']);
+  const validSHL=pmSHLs.filter(s=>s&&countCh(s)<=15&&!hasExcl(s)).length;
+  pills.push([validSHL>=1?'sp-ok':'sp-pend',`短標題 ${validSHL}組`]);
+  if(lhl&&!hasExcl(lhl)&&lhlN<=45)pills.push(['sp-ok','長標題 OK']);else pills.push(['sp-pend','長標題待填']);
+  document.getElementById('pm-status').innerHTML=pills.map(([cls,txt])=>`<span class="status-pill ${cls}">${txt}</span>`).join('');
+}
+function pmBrandProfile(){
+  return pmBrand==='ARVOpm'
+    ? 'ARVOpm：SST&C 旗下較年輕、俐落、日常輕正式的女裝/生活風格線，語氣可更清新但仍保留質感，不要過度浮誇。'
+    : 'SST&C：Style, Selection, Taste & Culture。服裝品牌語氣成熟、質感、都會、商務與生活兼具，客群多為25-45歲重視剪裁、場合感、耐穿度與俐落比例的上班族。';
+}
+function pmBuildPrompt(){
+  const c=getCamp(document.getElementById('pm-camp').value);
+  const ctx=campContext(c,'未指定活動，請以品牌當季新品/精選活動撰寫。');
+  const currentShort=Array.from(document.querySelectorAll('#pm-shl-list input')).map(i=>i.value).filter(Boolean);
+  const prompt=`請你以資深數位廣告文案策略的角度，幫我生成 Google PMAX 可直接投放的繁體中文素材文案。
+
+品牌背景：
+${pmBrandProfile()}
+
+活動/素材資料：
+- 品牌：${pmBrand}
+- PMAX 活動名稱：${document.getElementById('pm-name').value||'未填'}
+- 活動脈絡：${ctx}
+- 走期：${document.getElementById('pm-start').value||'未填'} ~ ${document.getElementById('pm-end').value||'未填'}
+- 目標網址：${document.getElementById('pm-url').value||'未填'}
+- 已有短標題參考：${currentShort.join('、')||'無'}
+- 素材狀態：橫式圖${pmAssets.land?'已上傳':'未上傳'}、正方圖${pmAssets.sq?'已上傳':'未上傳'}、影片${pmVideos.length}支
+
+文案要求：
+- 請生成 5 個 long_headlines，每個 45 個中文字以內。
+- 請生成 10 個 short_headlines，每個 15 個中文字以內。
+- 請生成 5 個 descriptions，每個 45 個中文字以內。
+- 絕對不要使用驚嘆號（! 或 ！）。
+- 不要出現「限時瘋搶」「爆買」「超殺」這類廉價促銷語。
+- 要像品牌企劃寫給廣告代理商可直接投放的版本，具體、有場合感、有質感。
+- 可以強調新品、折扣、通勤、週末、衣櫥更新、剪裁比例、質感穿搭，但不要空泛。
+
+請只回覆合法 JSON，不要加任何說明文字，格式如下：
+{
+  "long_headlines": ["..."],
+  "short_headlines": ["..."],
+  "descriptions": ["..."]
+}`;
+  const el=document.getElementById('pm-ai-prompt');
+  el.value=prompt;
+  toast('✓ Prompt 已產生');
+}
+function pmSetShortHeadlines(values){
+  const list=document.getElementById('pm-shl-list');
+  while(list.firstChild)list.removeChild(list.firstChild);
+  pmSHLs=[];
+  values.slice(0,15).forEach(v=>pmAddSHL());
+  const inputs=list.querySelectorAll('input');
+  values.slice(0,15).forEach((v,i)=>{
+    if(inputs[i]){
+      inputs[i].value=v;
+      pmSHLs[i]=v;
+      pmValidateSHL(i,inputs[i]);
+    }
+  });
+}
+function pmImportAIResult(){
+  const raw=document.getElementById('pm-ai-import').value.trim();
+  if(!raw){toast('請先貼上 Codex 回覆 JSON');return;}
+  try{
+    const jsonText=(raw.match(/\{[\s\S]*\}/)||[])[0]||raw;
+    const data=JSON.parse(jsonText);
+    const long=(data.long_headlines||data.longHeadline||[]).filter(Boolean);
+    const short=(data.short_headlines||data.shortHeadlines||[]).filter(Boolean);
+    const desc=(data.descriptions||data.description||[]).filter(Boolean);
+    if(long[0])document.getElementById('pm-lhl').value=long[0].replace(/[!！]/g,'').slice(0,45);
+    if(short.length)pmSetShortHeadlines(short.map(s=>String(s).replace(/[!！]/g,'').slice(0,15)));
+    if(desc[0])document.getElementById('pm-d1').value=String(desc[0]).replace(/[!！]/g,'').slice(0,45);
+    if(desc[1])document.getElementById('pm-d2').value=String(desc[1]).replace(/[!！]/g,'').slice(0,45);
+    pmUpdate();
+    toast('✓ 已匯入 PMAX 文案');
+  }catch(err){
+    toast('JSON 解析失敗，請確認只貼 JSON');
+  }
+}
+async function pmAICopy(type){
+  const c=getCamp(document.getElementById('pm-camp').value);
+  const ctx=campContext(c,'（SST&C 服裝品牌）');
+  let prompt='';
+  if(type==='lhl')prompt=`你是 SST&C 品牌文案師。請生成 Google PMAX 長標題（Long Headline）：\n${ctx}\n\n要求：45中文字以內，絕對不可有驚嘆號（!或！），不壓字提示，直接輸出標題文字，不需說明。`;
+  else prompt=`你是 SST&C 品牌文案師。請生成2條 Google PMAX 說明文字（Description）：\n${ctx}\n\n要求：每條45中文字以內，絕對不可有驚嘆號（!或！），用「說明1：」「說明2：」分隔，直接輸出。`;
+  const resultId=type==='lhl'?'pm-lhl-ai':'pm-desc-ai';
+  const actId=type==='lhl'?'pm-lhl-ai-actions':'pm-desc-ai-actions';
+  const btn=document.querySelectorAll('#tool-google-pmax .ai-gen-btn')[type==='lhl'?0:1];
+  await runAI(prompt,resultId,actId,btn);
+}
+function pmExport(){
+  const name=document.getElementById('pm-name').value||'Campaign';
+  const lhl=document.getElementById('pm-lhl').value;
+  const shlValues=Array.from(document.querySelectorAll('#pm-shl-list input')).map(i=>i.value).filter(Boolean);
+  const rows=[['品牌',pmBrand,''],['活動名稱',name,''],['刊登時間',`${document.getElementById('pm-start').value}~${document.getElementById('pm-end').value}`,''],['素材連結',document.getElementById('pm-mat-url').value,''],['長標題',lhl,countCh(lhl)<=45&&!lhl.includes('!')?'OK':'⚠ 格式問題'],['短標題',shlValues.join('\n'),''],['說明1',document.getElementById('pm-d1').value,''],['說明2',document.getElementById('pm-d2').value,''],['圖片-橫式',pmAssets.land?`${pmAssets.land.w}×${pmAssets.land.h}`:'未上傳',''],['圖片-正方',pmAssets.sq?`${pmAssets.sq.w}×${pmAssets.sq.h}`:'未上傳',''],['影片數',pmVideos.length,''],['完整UTM',document.getElementById('pm-utm-result').textContent,'']];
+  const ws=XLSX.utils.aoa_to_sheet([['項目','內容','備注'],...rows]);ws['!cols']=[{wch:14},{wch:64},{wch:16}];
+  const wb=XLSX.utils.book_new();const d=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  XLSX.utils.book_append_sheet(wb,ws,`${d}_${pmBrand}_PMAX`.slice(0,31));
+  XLSX.writeFile(wb,`${d}_${pmBrand}_${name}_PMAX.xlsx`);toast('✓ 已匯出');
+}
+
+// ══════════════════════════════════════════════
+// HODO
+// ══════════════════════════════════════════════
+let hdBrand='SST&C',hdMode='push',hdImgs={};
+
+function hdSetBrand(b,el){hdBrand=b;document.querySelectorAll('#tool-hodo .brand-opt').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');hdUpdate();}
+function hdSyncCamp(){
+  const c=getCamp(document.getElementById('hd-camp').value);if(!c)return;
+  document.getElementById('hd-name').value=c.id+'_'+c.name.slice(0,20).replace(/\s/g,'_');
+  document.getElementById('hd-start').value=c.start;document.getElementById('hd-end').value=c.end;
+  hdUpdate();toast('✓ 已載入活動資料');
+}
+function hdSetMode(m){
+  hdMode=m;
+  document.getElementById('hd-push-section').style.display=m==='push'?'':'none';
+  document.getElementById('hd-scroller-section').style.display=m==='scroller'?'':'none';
+  document.getElementById('hd-pv-push').style.display=m==='push'?'':'none';
+  document.getElementById('hd-pv-scroller').style.display=m==='scroller'?'':'none';
+  document.getElementById('hd-tab-push').style.background=m==='push'?'var(--gold)':'var(--cream2)';
+  document.getElementById('hd-tab-push').style.color=m==='push'?'var(--cream)':'var(--gold3)';
+  document.getElementById('hd-tab-scroller').style.background=m==='scroller'?'var(--gold)':'var(--cream2)';
+  document.getElementById('hd-tab-scroller').style.color=m==='scroller'?'var(--cream)':'var(--gold3)';
+  hdUpdateUtm();hdUpdate();
+}
+function hdHandleImg(input,key,wReq,hReq){
+  const file=input.files[0];if(!file)return;
+  const url=URL.createObjectURL(file);const img=new Image();
+  img.onload=()=>{
+    const ok=img.width===wReq&&img.height===hReq;
+    hdImgs[key]={url,w:img.width,h:img.height,ok};
+    const miniId='hd-'+key+'-mini';
+    document.getElementById(miniId).innerHTML=`<img src="${url}"><div style="position:absolute;bottom:2px;left:0;width:100%;text-align:center;background:rgba(255,255,255,.9);font-size:9px">${img.width}×${img.height} <span class="${ok?'spec-ok':'spec-warn'}">${ok?'✓':'⚠'}</span></div>`;
+    // update preview
+    if(key==='push-sm'){const el=document.getElementById('hd-pv-push-sm');el.src=url;el.style.display='block';}
+    if(key==='push-big'){const el=document.getElementById('hd-pv-push-big-img');el.src=url;el.style.display='block';document.getElementById('hd-pv-push-ph').style.display='none';}
+    if(key==='sc-main'){const el=document.getElementById('hd-pv-sc-main-img');el.src=url;el.style.display='block';document.getElementById('hd-pv-sc-ph').style.display='none';}
+    if(key==='sc-logo'){const el=document.getElementById('hd-pv-sc-logo');el.src=url;el.style.display='block';}
+    hdUpdate();
+  };img.src=url;input.value='';
+}
+function hdUpdateUtm(){
+  const url=document.getElementById('hd-url').value;const camp=document.getElementById('hd-name').value||'campaign';
+  const med=hdMode==='push'?'push':'scroller';
+  const full=url?`${url}${url.includes('?')?'&':'?'}utm_source=hodo&utm_medium=${med}&utm_campaign=${camp}`:'';
+  document.getElementById('hd-utm-result').textContent=full||'請先輸入目標網址';
+}
+function hdUpdate(){
+  if(hdMode==='push'){
+    const pt=document.getElementById('hd-pt').value,pb=document.getElementById('hd-pb').value;
+    setBadge('hd-pt-badge',countCh(pt),20);setBadge('hd-pb-badge',countCh(pb),26);
+    document.getElementById('hd-pv-pt').textContent=pt||'推播標題預覽';
+    document.getElementById('hd-pv-pb').textContent=pb||'推播內文預覽...';
+  } else {
+    const st=document.getElementById('hd-st').value;
+    setBadge('hd-st-badge',countCh(st),23);
+    document.getElementById('hd-pv-st').textContent=st||'猜你喜歡廣告標題預覽...';
+  }
+  hdUpdateUtm();
+  const pills=[];
+  if(hdBrand)pills.push(['sp-ok','品牌 '+hdBrand]);
+  if(hdMode==='push'){
+    if(hdImgs['push-sm']&&hdImgs['push-big'])pills.push(['sp-ok','推播圖片齊全']);else pills.push(['sp-pend','推播圖片待上傳']);
+    if(document.getElementById('hd-pt').value)pills.push(['sp-ok','標題已填']);else pills.push(['sp-pend','標題待填']);
+  } else {
+    if(hdImgs['sc-main']&&hdImgs['sc-logo'])pills.push(['sp-ok','圖片齊全']);else pills.push(['sp-pend','圖片待上傳']);
+    if(document.getElementById('hd-st').value)pills.push(['sp-ok','標題已填']);else pills.push(['sp-pend','標題待填']);
+  }
+  document.getElementById('hd-status').innerHTML=pills.map(([cls,txt])=>`<span class="status-pill ${cls}">${txt}</span>`).join('');
+}
+async function hdAICopy(type){
+  const c=getCamp(document.getElementById('hd-camp').value);
+  const ctx=campContext(c,'（SST&C 服裝品牌）');
+  let prompt='';
+  if(type==='push')prompt=`你是 SST&C 品牌文案師。請生成一則手機推播廣告文案：\n${ctx}\n\n格式：\n標題（20中文字以內）：\n內文（26中文字以內）：\n\n直接輸出，不需說明。`;
+  else prompt=`你是 SST&C 品牌文案師。請生成一則「猜你喜歡」廣告標題：\n${ctx}\n\n要求：23中文字以內，吸引點擊，直接輸出標題文字。`;
+  const resultId=type==='push'?'hd-push-ai':'hd-sc-ai';
+  const actId=type==='push'?'hd-push-ai-actions':'hd-sc-ai-actions';
+  const btns=document.querySelectorAll('#tool-hodo .ai-gen-btn');
+  await runAI(prompt,resultId,actId,type==='push'?btns[0]:btns[1]);
+}
+function hdExport(){
+  const name=document.getElementById('hd-name').value||'Campaign';
+  const wb=XLSX.utils.book_new();const d=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const baseRows=[['品牌',hdBrand,''],['活動名稱',name,''],['走期',`${document.getElementById('hd-start').value}~${document.getElementById('hd-end').value}`,''],['素材連結',document.getElementById('hd-mat-url').value,''],['目標網址',document.getElementById('hd-url').value,'']];
+  // Push sheet
+  const pushRows=[...baseRows,['UTM(Push)',`${document.getElementById('hd-url').value}?utm_source=hodo&utm_medium=push&utm_campaign=${name}`,''],['推播標題(20字)',document.getElementById('hd-pt').value,''],['推播內文(26字)',document.getElementById('hd-pb').value,''],['小圖(100×100)',hdImgs['push-sm']?`${hdImgs['push-sm'].w}×${hdImgs['push-sm'].h}`:'未上傳',''],['大圖(300×150)',hdImgs['push-big']?`${hdImgs['push-big'].w}×${hdImgs['push-big'].h}`:'未上傳','']];
+  const wsPush=XLSX.utils.aoa_to_sheet([['項目','內容','備注'],...pushRows]);wsPush['!cols']=[{wch:16},{wch:60},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,wsPush,`${d}_${hdBrand}_Push`.slice(0,31));
+  // Scroller sheet
+  const scRows=[...baseRows,['UTM(Scroller)',`${document.getElementById('hd-url').value}?utm_source=hodo&utm_medium=scroller&utm_campaign=${name}`,''],['廣告標題(23字)',document.getElementById('hd-st').value,''],['主圖(320×250)',hdImgs['sc-main']?`${hdImgs['sc-main'].w}×${hdImgs['sc-main'].h}`:'未上傳',''],['Logo(100×100)',hdImgs['sc-logo']?`${hdImgs['sc-logo'].w}×${hdImgs['sc-logo'].h}`:'未上傳','']];
+  const wsScroller=XLSX.utils.aoa_to_sheet([['項目','內容','備注'],...scRows]);wsScroller['!cols']=[{wch:16},{wch:60},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,wsScroller,`${d}_${hdBrand}_Scroller`.slice(0,31));
+  XLSX.writeFile(wb,`${d}_${hdBrand}_${name}_Hodo.xlsx`);toast('✓ 已匯出');
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+  loadV45Camps();
+  fbcRenderProducts();
+  // add 3 short headlines for PMAX by default
+  for(let i=0;i<3;i++) pmAddSHL();
+  applyCampaignParam();
+  fbsUpdate();fbcUpdate();pmUpdate();hdUpdate();
+});
+</script>
+</body>
+</html>
