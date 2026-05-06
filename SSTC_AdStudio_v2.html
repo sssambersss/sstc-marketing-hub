@@ -976,7 +976,7 @@ async function callAdAI(payload){
   if(!endpoint) return null;
   const res=await fetch(endpoint,{
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
     body:JSON.stringify(payload)
   });
   const data=await res.json();
