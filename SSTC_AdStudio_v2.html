@@ -67,6 +67,16 @@ body{font-family:var(--font-body);font-size:14px;color:var(--ink);background:var
 .tool-btn.active{color:var(--gold);border-bottom-color:var(--gold)}
 .tool-btn .platform-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--gold2)!important;border:1px solid var(--border2);opacity:.72}
 .tool-btn.active .platform-dot{background:var(--gold)!important;opacity:1}
+.ai-config-bar{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:8px 28px;background:var(--cream2);border-bottom:1px solid var(--border);
+}
+.ai-config-bar label{font-family:var(--font-display);font-size:8px;letter-spacing:2px;color:var(--gold3)}
+.ai-config-bar input{
+  flex:1;min-width:260px;padding:6px 9px;border:1px solid var(--border2);
+  background:var(--cream);color:var(--ink);font-family:var(--font-body);font-size:12px;
+}
+.ai-config-status{font-family:var(--font-display);font-size:8px;letter-spacing:1px;color:var(--gold3)}
 
 /* ── LAYOUT ── */
 .app{display:flex;flex-direction:column;height:100vh}
@@ -325,6 +335,13 @@ body{font-family:var(--font-body);font-size:14px;color:var(--ink);background:var
     <a href="SSTC_v46.html" class="btn">← 行銷系統</a>
     <span id="camp-sync-badge" style="font-family:var(--font-display);font-size:8px;letter-spacing:1px;color:var(--gold3);display:none"></span>
   </div>
+</div>
+
+<div class="ai-config-bar">
+  <label for="ai-endpoint">AI 服務網址</label>
+  <input id="ai-endpoint" type="url" placeholder="貼上 Google Apps Script Web app URL">
+  <button class="btn btn-sm" onclick="saveAIEndpoint()">儲存</button>
+  <span id="ai-endpoint-status" class="ai-config-status">尚未連線</span>
 </div>
 
 <!-- TOOL NAV -->
@@ -935,6 +952,43 @@ function setBadge(id,cur,max){
 function buildUtm(base,src,med,camp,content){
   try{const u=new URL(base);const p=new URLSearchParams(u.search);if(src)p.set('utm_source',src);if(med)p.set('utm_medium',med);if(camp)p.set('utm_campaign',camp);if(content)p.set('utm_content',content);u.search=p.toString();return u.toString();}catch{return '';}
 }
+function getAIEndpoint(){
+  return (localStorage.getItem('sstc_ai_endpoint')||'').trim();
+}
+function saveAIEndpoint(){
+  const el=document.getElementById('ai-endpoint');
+  const status=document.getElementById('ai-endpoint-status');
+  const url=(el&&el.value||'').trim();
+  if(url) localStorage.setItem('sstc_ai_endpoint',url);
+  else localStorage.removeItem('sstc_ai_endpoint');
+  if(status) status.textContent=url?'已儲存，AI 會改用線上生成':'尚未連線';
+  toast(url?'AI 服務網址已儲存':'AI 服務網址已清空');
+}
+function initAIEndpoint(){
+  const el=document.getElementById('ai-endpoint');
+  const status=document.getElementById('ai-endpoint-status');
+  const url=getAIEndpoint();
+  if(el) el.value=url;
+  if(status) status.textContent=url?'已連線到 GAS':'尚未連線';
+}
+async function callAdAI(payload){
+  const endpoint=getAIEndpoint();
+  if(!endpoint) return null;
+  const res=await fetch(endpoint,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  });
+  const data=await res.json();
+  if(!data.ok) throw new Error(data.error||'AI 服務沒有回傳結果');
+  if(!Array.isArray(data.options)) throw new Error('AI 回傳格式不正確');
+  return data.options;
+}
+function campaignPayload(c){
+  if(!c)return null;
+  const keys=['id','year','name','theme','season','type','status','channels','start','end','discType','discNum','summary','mktgCopy','mktgAd','mktgEdm','mktgNote'];
+  return keys.reduce((obj,k)=>{obj[k]=c[k]||'';return obj;},{});
+}
 function copyAI(resultId){
   const el=document.getElementById(resultId);
   navigator.clipboard.writeText(el.textContent).then(()=>toast('✓ 已複製')).catch(()=>toast('請手動複製'));
@@ -1231,7 +1285,17 @@ async function fbsAICopy(){
   const btn=document.querySelector('#tool-fb-single .ai-gen-btn');
   if(btn){btn.disabled=true;btn.textContent='生成中…';}
   try{
-    const options=fbsBuildOptions(c);
+    const online=await callAdAI({
+      tool:'fb-single',
+      brand:fbsBrand,
+      campaign:campaignPayload(c),
+      url:document.getElementById('fbs-url').value||'',
+      current:{
+        contentTitle:document.getElementById('fbs-ct').value||'',
+        materialUrl:document.getElementById('fbs-mat-url').value||''
+      }
+    });
+    const options=online||fbsBuildOptions(c);
     fbsRenderOptions(options);
   }catch(err){
     const result=document.getElementById('fbs-ai-result');
@@ -1508,7 +1572,20 @@ async function fbcAICopy(){
   const c=getCamp(document.getElementById('fbc-camp').value);
   const btn=document.querySelector('#tool-fb-catalog .ai-gen-btn');
   if(btn){btn.disabled=true;btn.textContent='生成中…';}
-  try{fbcRenderOptions(fbcBuildOptions(c));}
+  try{
+    const online=await callAdAI({
+      tool:'fb-catalog',
+      brand:fbcBrand,
+      campaign:campaignPayload(c),
+      url:document.getElementById('fbc-url').value||'',
+      products:fbcProducts.filter(p=>p.name||p.url).map(p=>({name:p.name||'',price:p.price||'',url:p.url||''})),
+      current:{
+        contentTitle:document.getElementById('fbc-ct').value||'',
+        materialUrl:document.getElementById('fbc-mat-url').value||''
+      }
+    });
+    fbcRenderOptions(online||fbcBuildOptions(c));
+  }
   catch(err){const result=document.getElementById('fbc-ai-result');if(result){result.className='ai-result show';result.textContent='生成失敗：'+err.message;}}
   finally{if(btn){btn.disabled=false;btn.textContent='⚡ 重新生成 5 組候選';}}
 }
@@ -1816,6 +1893,7 @@ function hdExport(){
 // INIT
 // ══════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded',()=>{
+  initAIEndpoint();
   loadV45Camps();
   fbcRenderProducts();
   // add 3 short headlines for PMAX by default
