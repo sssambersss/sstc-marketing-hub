@@ -1,4 +1,19 @@
 function doGet() {
+  var params = arguments[0] && arguments[0].parameter ? arguments[0].parameter : {};
+  if (params.payload) {
+    var callback = params.callback || 'callback';
+    try {
+      var body = JSON.parse(params.payload || '{}');
+      var result = generateCopy(body);
+      return jsOutput(callback + '(' + JSON.stringify(result) + ');');
+    } catch (err) {
+      return jsOutput(callback + '(' + JSON.stringify({
+        ok: false,
+        error: err.message || String(err)
+      }) + ');');
+    }
+  }
+
   return jsonOutput({
     ok: true,
     service: 'sstc-openai-proxy',
@@ -9,59 +24,63 @@ function doGet() {
 function doPost(e) {
   try {
     var body = JSON.parse(e.postData.contents || '{}');
-    var apiKey = PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY');
-    var model = PropertiesService.getScriptProperties().getProperty('OPENAI_MODEL') || 'gpt-5.2';
-
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is not set');
-    }
-
-    var prompt = buildPrompt(body);
-    var payload = {
-      model: model,
-      input: [
-        {
-          role: 'developer',
-          content: 'You are a senior Taiwan fashion e-commerce ad copywriter for SST&C and ARVOpm. Write polished paid-ad copy in Traditional Chinese. Return JSON only.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
-    };
-
-    var response = UrlFetchApp.fetch('https://api.openai.com/v1/responses', {
-      method: 'post',
-      contentType: 'application/json',
-      headers: {
-        Authorization: 'Bearer ' + apiKey
-      },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-
-    var status = response.getResponseCode();
-    var text = response.getContentText();
-
-    if (status < 200 || status >= 300) {
-      throw new Error('OpenAI API error ' + status + ': ' + text);
-    }
-
-    var data = JSON.parse(text);
-    var outputText = getOutputText(data);
-    var parsed = JSON.parse(cleanJson(outputText));
-
-    return jsonOutput({
-      ok: true,
-      options: normalizeOptions(parsed.options || [])
-    });
+    return jsonOutput(generateCopy(body));
   } catch (err) {
     return jsonOutput({
       ok: false,
       error: err.message || String(err)
     });
   }
+}
+
+function generateCopy(body) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY');
+  var model = PropertiesService.getScriptProperties().getProperty('OPENAI_MODEL') || 'gpt-5.2';
+
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is not set');
+  }
+
+  var prompt = buildPrompt(body);
+  var payload = {
+    model: model,
+    input: [
+      {
+        role: 'developer',
+        content: 'You are a senior Taiwan fashion e-commerce ad copywriter for SST&C and ARVOpm. Write polished paid-ad copy in Traditional Chinese. Return JSON only.'
+      },
+      {
+        role: 'user',
+        content: prompt
+      }
+    ]
+  };
+
+  var response = UrlFetchApp.fetch('https://api.openai.com/v1/responses', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      Authorization: 'Bearer ' + apiKey
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  var status = response.getResponseCode();
+  var text = response.getContentText();
+
+  if (status < 200 || status >= 300) {
+    throw new Error('OpenAI API error ' + status + ': ' + text);
+  }
+
+  var data = JSON.parse(text);
+  var outputText = getOutputText(data);
+  var parsed = JSON.parse(cleanJson(outputText));
+
+  return {
+    ok: true,
+    options: normalizeOptions(parsed.options || [])
+  };
 }
 
 function buildPrompt(body) {
@@ -163,4 +182,10 @@ function jsonOutput(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function jsOutput(text) {
+  return ContentService
+    .createTextOutput(text)
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
 }

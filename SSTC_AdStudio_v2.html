@@ -974,6 +974,9 @@ function initAIEndpoint(){
 async function callAdAI(payload){
   const endpoint=getAIEndpoint();
   if(!endpoint) return null;
+  if(endpoint.includes('script.google.com')){
+    return callAdAIJsonp(endpoint,payload);
+  }
   const res=await fetch(endpoint,{
     method:'POST',
     headers:{'Content-Type':'text/plain;charset=utf-8'},
@@ -983,6 +986,40 @@ async function callAdAI(payload){
   if(!data.ok) throw new Error(data.error||'AI 服務沒有回傳結果');
   if(!Array.isArray(data.options)) throw new Error('AI 回傳格式不正確');
   return data.options;
+}
+function callAdAIJsonp(endpoint,payload){
+  return new Promise((resolve,reject)=>{
+    const callback='sstcAiCallback_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const script=document.createElement('script');
+    const timer=setTimeout(()=>{
+      cleanup();
+      reject(new Error('AI 服務逾時，請確認 GAS 已重新部署'));
+    },60000);
+    function cleanup(){
+      clearTimeout(timer);
+      delete window[callback];
+      if(script.parentNode)script.parentNode.removeChild(script);
+    }
+    window[callback]=(data)=>{
+      cleanup();
+      if(!data||!data.ok){
+        reject(new Error((data&&data.error)||'AI 服務沒有回傳結果'));
+        return;
+      }
+      if(!Array.isArray(data.options)){
+        reject(new Error('AI 回傳格式不正確'));
+        return;
+      }
+      resolve(data.options);
+    };
+    const sep=endpoint.includes('?')?'&':'?';
+    script.src=endpoint+sep+'callback='+encodeURIComponent(callback)+'&payload='+encodeURIComponent(JSON.stringify(payload));
+    script.onerror=()=>{
+      cleanup();
+      reject(new Error('AI 服務載入失敗，請確認 GAS 網址是 /exec 且權限為 Anyone'));
+    };
+    document.head.appendChild(script);
+  });
 }
 function campaignPayload(c){
   if(!c)return null;
@@ -1782,6 +1819,64 @@ async function pmAICopy(type){
   const actId=type==='lhl'?'pm-lhl-ai-actions':'pm-desc-ai-actions';
   const btn=document.querySelectorAll('#tool-google-pmax .ai-gen-btn')[type==='lhl'?0:1];
   await runAI(prompt,resultId,actId,btn);
+}
+async function pmAICopy(type){
+  const c=getCamp(document.getElementById('pm-camp').value);
+  const resultId=type==='lhl'?'pm-lhl-ai':'pm-desc-ai';
+  const actId=type==='lhl'?'pm-lhl-ai-actions':'pm-desc-ai-actions';
+  const btn=document.querySelectorAll('#tool-google-pmax .ai-gen-btn')[type==='lhl'?0:1];
+  const resultEl=document.getElementById(resultId);
+  const actionsEl=document.getElementById(actId);
+  if(btn){btn.disabled=true;btn.textContent='生成中...';}
+  if(resultEl){resultEl.className='ai-result show';resultEl.innerHTML='<div class="ai-loading">AI 生成中</div>';}
+  if(actionsEl)actionsEl.style.display='none';
+  try{
+    const options=await callAdAI({
+      tool:type==='lhl'?'google-pmax-long-headline':'google-pmax-description',
+      brand:pmBrand,
+      campaign:campaignPayload(c),
+      url:document.getElementById('pm-url').value||'',
+      current:{
+        campaignName:document.getElementById('pm-name').value||'',
+        materialUrl:document.getElementById('pm-mat-url').value||''
+      }
+    });
+    pmRenderOnlineOptions(type,options||fbsBuildOptions(c));
+  }catch(err){
+    if(resultEl){resultEl.className='ai-result show';resultEl.textContent='生成失敗：'+err.message;}
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=type==='lhl'?'⚡ AI 生成長標題':'⚡ AI 生成說明文字';}
+  }
+}
+function pmRenderOnlineOptions(type,options){
+  window._pmAiOptions=window._pmAiOptions||{};
+  window._pmAiOptions[type]=options;
+  const resultEl=document.getElementById(type==='lhl'?'pm-lhl-ai':'pm-desc-ai');
+  const actionsEl=document.getElementById(type==='lhl'?'pm-lhl-ai-actions':'pm-desc-ai-actions');
+  if(actionsEl)actionsEl.style.display='none';
+  if(!resultEl)return;
+  resultEl.className='ai-result show';
+  resultEl.innerHTML=options.map((opt,i)=>{
+    const text=type==='lhl'?(opt.headline||opt.copy||''):(opt.desc||opt.copy||'');
+    return `<div style="border-bottom:1px solid var(--border);padding:8px 0">
+      <div style="font-family:var(--font-display);font-size:8px;letter-spacing:2px;color:var(--gold3);margin-bottom:4px">選項 ${i+1}</div>
+      <div style="white-space:pre-wrap;line-height:1.7">${escH(text)}</div>
+      <button class="btn btn-sm btn-gold" style="margin-top:6px" onclick="pmApplyOnlineOption('${type}',${i})">套用這組</button>
+    </div>`;
+  }).join('');
+}
+function pmApplyOnlineOption(type,i){
+  const opt=((window._pmAiOptions||{})[type]||[])[i];
+  if(!opt)return;
+  if(type==='lhl'){
+    document.getElementById('pm-lhl').value=String(opt.headline||opt.copy||'').replace(/[!！]/g,'').slice(0,45);
+  }else{
+    document.getElementById('pm-d1').value=String(opt.desc||opt.copy||'').replace(/[!！]/g,'').slice(0,45);
+    const next=((window._pmAiOptions||{})[type]||[])[i+1]||((window._pmAiOptions||{})[type]||[])[0];
+    if(next)document.getElementById('pm-d2').value=String(next.desc||next.copy||'').replace(/[!！]/g,'').slice(0,45);
+  }
+  pmUpdate();
+  toast('已套用 PMAX 文案');
 }
 function pmExport(){
   const name=document.getElementById('pm-name').value||'Campaign';
