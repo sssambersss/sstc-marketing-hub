@@ -124,6 +124,17 @@ function saveDataSources(){
   closeDataSourceModal();
   init();
 }
+function renderSourceDiagnostics(message=''){
+  const sheets=raw&&raw.sheets?Object.keys(raw.sheets):[];
+  const hodoSheets=hodoVendorRaw&&hodoVendorRaw.sheets?Object.keys(hodoVendorRaw.sheets):[];
+  const rows=sheets.map(name=>({name,rows:(raw.sheets[name]||[]).length,cols:Object.keys((raw.sheets[name]||[])[0]||{}).slice(0,8).join(' / ')}));
+  const hRows=hodoSheets.map(name=>({name,rows:(hodoVendorRaw.sheets[name]||[]).length,cols:Object.keys((hodoVendorRaw.sheets[name]||[])[0]||{}).slice(0,8).join(' / ')}));
+  document.getElementById('panel-ai').innerHTML=`
+    <div class="hero"><div><h1>資料來源診斷</h1><p>確認 Google Sheet 回傳的工作表與欄位</p></div></div>
+    ${message?`<div class="card wide"><h2>目前狀態</h2><pre class="ai-out">${esc(message)}</pre></div>`:''}
+    <div class="card wide"><h2>整理後成效表</h2>${table(rows,[['工作表','name'],['資料列','rows',fmtInt],['前幾個欄位','cols']],50)}</div>
+    <div class="card wide"><h2>禾多原始周報</h2>${table(hRows,[['工作表','name'],['資料列','rows',fmtInt],['前幾個欄位','cols']],50)}</div>`;
+}
 function clearDataSources(){
   localStorage.removeItem('sstc_perf_sheet_endpoint');
   localStorage.removeItem('sstc_hodo_sheet_endpoint');
@@ -152,7 +163,19 @@ async function init(){
   document.getElementById('sourceFilter').innerHTML='<option value="all">全部來源</option>'+sources.map(s=>`<option>${s}</option>`).join('');
   renderAll();
 }
-function renderAll(){if(!raw)return;renderGA4();render91();renderHodo();renderLine();renderFB();renderAI();}
+function renderAll(){
+  if(!raw)return;
+  const tasks=[['ga4',renderGA4],['app91',render91],['hodo',renderHodo],['line',renderLine],['fb',renderFB],['ai',renderAI]];
+  const errors=[];
+  tasks.forEach(([id,fn])=>{
+    try{fn()}catch(e){
+      errors.push(id+': '+e.message);
+      const panel=document.getElementById('panel-'+id);
+      if(panel)panel.innerHTML=`<div class="hero"><div><h1>${id.toUpperCase()} 資料未對上</h1><p>這一頁需要欄位對照後才能顯示</p></div></div><div class="card wide"><h2>原因</h2><pre class="ai-out">${esc(e.message)}</pre></div>`;
+    }
+  });
+  if(errors.length)renderSourceDiagnostics(errors.join('\n'));
+}
 function renderGA4(){
   const rows=bySource(sheet('91APP｜綜合數據'),'來源/媒介');
   const ref=byBrand(sheet('統一成效表'));
