@@ -101,11 +101,20 @@ function generateAnalytics(body) {
   var metrics = body.metrics || {};
   var topAds = JSON.stringify((body.topAds || []).slice(0, 10));
   var topSources = JSON.stringify((body.topSources || []).slice(0, 10));
+  var section = body.section || 'overall';
+  var instruction = body.instruction || '';
   var prompt = [
     'Analyze this Taiwan fashion e-commerce marketing performance data.',
     'Write in Traditional Chinese.',
     'Be practical and specific. Do not overclaim.',
     'Focus on: performance summary, risks, opportunities, audience segmentation, budget actions, next experiments.',
+    'If section-level data is provided, first understand the global context, then analyze the selected section.',
+    '',
+    'Section:',
+    section,
+    '',
+    'Extra instruction:',
+    instruction,
     '',
     'Metrics:',
     JSON.stringify(metrics),

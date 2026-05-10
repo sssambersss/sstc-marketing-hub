@@ -227,6 +227,159 @@ async function runAIAnalysis(){
   }catch(e){out.textContent='AI 分析暫時失敗，先顯示本機分析：\n\n'+localInsights()+'\n\n錯誤：'+e.message}
 }
 function callJsonp(endpoint,payload){return new Promise((resolve,reject)=>{const cb='sstcDash_'+Date.now();const s=document.createElement('script');const timer=setTimeout(()=>{cleanup();reject(new Error('AI 服務逾時'))},60000);function cleanup(){clearTimeout(timer);delete window[cb];if(s.parentNode)s.parentNode.removeChild(s)}window[cb]=d=>{cleanup();d&&d.ok?resolve(d):reject(new Error((d&&d.error)||'AI 無回應'))};s.onerror=()=>{cleanup();reject(new Error('AI 服務載入失敗'))};s.src=endpoint+(endpoint.includes('?')?'&':'?')+'callback='+cb+'&payload='+encodeURIComponent(JSON.stringify(payload));document.head.appendChild(s)})}
+const HODO_VENDOR_URL='data/hodo-vendor-report.json';
+let hodoVendorRaw=null;
+
+async function init(){
+  document.getElementById('aiEndpoint').value=getAIEndpoint();
+  raw=await fetch(DATA_URL).then(r=>r.json());
+  try{hodoVendorRaw=await fetch(HODO_VENDOR_URL).then(r=>r.json())}catch(e){hodoVendorRaw=null}
+  const sources=[...new Set(readSheet('91APP｜綜合數據').map(r=>getVal(r,'來源/媒介')).filter(Boolean))].slice(0,80);
+  document.getElementById('sourceFilter').innerHTML='<option value="all">全部來源</option>'+sources.map(s=>`<option>${esc(s)}</option>`).join('');
+  renderAll();
+}
+function readSheet(name){return (raw&&raw.sheets&&raw.sheets[name])||[]}
+function getVal(row,...keys){for(const k of keys){if(row&&row[k]!==undefined&&row[k]!==null&&row[k]!=='')return row[k]}return ''}
+function toNum(v){if(v===null||v===undefined||v===''||String(v).includes('#DIV'))return 0;const n=Number(String(v).replace(/[$,%]/g,'').trim());return isNaN(n)?0:n}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function inferBrand(text){text=String(text||'');if(/arvo/i.test(text))return 'ARVOpm';if(/sst|天喜|st&c/i.test(text))return 'SST&C';return 'Unknown'}
+function inferPlatform(row){
+  const text=[getVal(row,'平台'),getVal(row,'廣告名稱'),getVal(row,'素材名稱'),getVal(row,'受眾名稱')].join(' ').toLowerCase();
+  if(/google|pmax|gdn|search/.test(text))return 'Google';
+  if(/meta|facebook|fb|目錄型|成效型|曝光廣告/.test(text))return 'Meta';
+  if(/hodo|禾多|推播|聯播/.test(text))return 'Hodo';
+  return 'Unknown';
+}
+function inferAdType(row){
+  const text=[getVal(row,'廣告類型'),getVal(row,'廣告名稱'),getVal(row,'素材名稱'),getVal(row,'受眾名稱')].join(' ');
+  if(/目錄型|商品資料夾|catalog/i.test(text))return '目錄型廣告';
+  if(/成效型|導購|conversion/i.test(text))return '成效型廣告';
+  if(/曝光|流量|reach|traffic/i.test(text))return '曝光/流量';
+  if(/pmax/i.test(text))return 'PMAX';
+  if(/受眾/.test(text))return '受眾分析';
+  if(/素材/.test(text))return '素材分析';
+  return getVal(row,'廣告類型')||'未分類';
+}
+function qualityTags(row){
+  const tags=[];
+  if(inferPlatform(row)==='Unknown')tags.push('Unknown Platform');
+  if(inferBrand([getVal(row,'品牌'),getVal(row,'廣告名稱')].join(' '))==='Unknown')tags.push('Unknown Brand');
+  if(!getVal(row,'廣告名稱')&&!getVal(row,'受眾名稱')&&!getVal(row,'素材名稱'))tags.push('Missing Name');
+  if(!getVal(row,'日期範圍'))tags.push('Missing Date Range');
+  if(String(getVal(row,'廣告名稱')).includes('總計'))tags.push('Total Row');
+  return tags.length?tags:['Clean'];
+}
+function cleanHodoRows(){
+  const brandFilter=document.getElementById('brandFilter')?.value||'all';
+  return readSheet('統一成效表').map(r=>{
+    const name=getVal(r,'廣告名稱')||getVal(r,'受眾名稱')||getVal(r,'素材名稱')||'未命名';
+    const clean={raw:r,name,brand:getVal(r,'品牌')||inferBrand(name),platform:inferPlatform(r),adType:inferAdType(r),dateRange:getVal(r,'日期範圍'),impressions:toNum(getVal(r,'曝光次數')),clicks:toNum(getVal(r,'點擊次數')),spend:toNum(getVal(r,'花費','花費 TWD')),revenue:toNum(getVal(r,'購買金額','購買金額 TWD')),orders:toNum(getVal(r,'購買次數')),cart:toNum(getVal(r,'加入購物車')),audience:getVal(r,'受眾名稱'),creative:getVal(r,'素材名稱')};
+    clean.ctr=clean.clicks/Math.max(clean.impressions,1);clean.cpc=clean.spend/Math.max(clean.clicks,1);clean.roas=clean.revenue/Math.max(clean.spend,1);clean.tags=qualityTags(r);return clean;
+  }).filter(r=>brandFilter==='all'||r.brand===brandFilter).filter(r=>r.platform!=='Unknown'||r.impressions||r.clicks||r.spend||r.revenue);
+}
+function parseVendorSummary(){
+  const sheets=(hodoVendorRaw&&hodoVendorRaw.sheets)||[];
+  const summaries=[];
+  sheets.forEach(s=>{
+    if(!s||!s.rows)return;
+    const brand=inferBrand(s.name);
+    const period=(s.name.match(/_(.+)$/)||[])[1]||'';
+    let section='Unknown';
+    let dataRows=0,totalRows=0,notes=0;
+    s.rows.forEach(row=>{
+      const first=String(row[0]||'').trim();
+      const joined=row.map(x=>String(x||'')).join(' ');
+      if(/META|Meta|FB/.test(first))section='Meta';
+      if(/GOOGLE|Google|PMAX/.test(first))section='Google';
+      if(first==='總計')totalRows++;
+      if(/偏高|不足|扣除|平均ROAS/.test(joined))notes++;
+      if(/廣告|活動|受眾|目錄|成效|曝光/.test(first)&&first!=='活動名稱'&&first!=='受眾名稱')dataRows++;
+    });
+    summaries.push({sheet:s.name,brand,period,section,dataRows,totalRows,notes,rows:s.rows.length});
+  });
+  return summaries;
+}
+function hodoGlobalContext(rows){
+  const totalSpend=rows.reduce((a,r)=>a+r.spend,0),totalRevenue=rows.reduce((a,r)=>a+r.revenue,0);
+  const byPlatform=groupClean(rows,'platform',['spend','revenue','clicks','impressions']);
+  const top=rows.filter(r=>r.spend>0).sort((a,b)=>b.roas-a.roas).slice(0,8).map(r=>({name:r.name,platform:r.platform,adType:r.adType,spend:r.spend,revenue:r.revenue,roas:r.roas}));
+  return {source:'Hodo vendor report + manually normalized Excel',totalRows:rows.length,totalSpend,totalRevenue,roas:totalRevenue/Math.max(totalSpend,1),byPlatform,top};
+}
+function groupClean(rows,key,metrics){
+  const m=new Map();rows.forEach(r=>{const k=r[key]||'其他';if(!m.has(k))m.set(k,{name:k,rows:0});const o=m.get(k);o.rows++;metrics.forEach(x=>o[x]=(o[x]||0)+(r[x]||0));});return [...m.values()];
+}
+function healthCard(title,value,sub,kind=''){
+  return `<div class="kpi"><div class="label">${title}</div><div class="value ${kind}">${value}</div><div class="delta">${sub||''}</div></div>`
+}
+function aiBlock(id,label,scope){
+  return `<div class="note" style="margin-top:12px"><button class="btn" onclick="runSectionAI('${id}','${scope}')">${label}</button></div><div class="ai-out" id="${id}" style="display:none;margin-top:8px;min-height:80px"></div>`;
+}
+async function runSectionAI(targetId,scope){
+  const rows=cleanHodoRows();
+  const out=document.getElementById(targetId);
+  out.style.display='block';out.textContent='AI 分析中...';
+  const context=hodoGlobalContext(rows);
+  let sectionData={};
+  if(scope==='trend')sectionData=groupClean(rows,'dateRange',['spend','revenue','clicks','impressions']).map(x=>({...x,roas:x.revenue/Math.max(x.spend,1)}));
+  if(scope==='ranking')sectionData=rows.filter(r=>r.spend>0).sort((a,b)=>b.roas-a.roas).slice(0,15).map(r=>({name:r.name,platform:r.platform,adType:r.adType,spend:r.spend,revenue:r.revenue,orders:r.orders,roas:r.roas}));
+  if(scope==='health')sectionData=hodoHealth(rows);
+  if(scope==='source')sectionData=groupClean(rows,'platform',['spend','revenue','clicks','impressions']).map(x=>({...x,roas:x.revenue/Math.max(x.spend,1)}));
+  try{
+    const endpoint=getAIEndpoint();
+    if(!endpoint){out.textContent=localHodoInsight(scope,context,sectionData);return}
+    const res=await callJsonp(endpoint,{mode:'analytics',section:'hodo-'+scope,metrics:{global:context,sectionData},instruction:'Analyze the selected Hodo dashboard section. Use the global Hodo context first, then explain this specific section. Write Traditional Chinese with concrete action suggestions.'});
+    out.textContent=res.analysis||res.text||JSON.stringify(res,null,2);
+  }catch(e){out.textContent=localHodoInsight(scope,context,sectionData)+'\n\nAI 暫時失敗：'+e.message}
+}
+function localHodoInsight(scope,ctx,data){
+  const roas=ctx.roas.toFixed(2);
+  if(scope==='health')return `整體禾多資料 ROAS 約 ${roas}，但資料來源為廠商周報加人工整理，應先處理 Unknown、Missing Name 與 Total Row。建議要求廠商固定提供：品牌、平台、活動名稱、廣告類型、週期、花費、營收、購買次數。`;
+  if(scope==='trend')return `整體禾多 ROAS 約 ${roas}。請優先觀察花費增加時 ROAS 是否同步提升；若某週花費上升但 ROAS 下滑，通常代表預算流向低轉換活動或受眾疲乏。`;
+  if(scope==='source')return `整體禾多 ROAS 約 ${roas}。平台分布應同時看花費與營收，不能只看點擊。若 Meta 點擊高但營收低，需檢查目錄商品、受眾與落地頁。`;
+  return `整體禾多 ROAS 約 ${roas}。排行應用來決定加碼與停損：高 ROAS 且花費仍低的項目可加碼測試，低 ROAS 高花費項目需檢查素材、受眾或活動承接。`;
+}
+function hodoHealth(rows){
+  const total=rows.length;
+  const unknownPlatform=rows.filter(r=>r.platform==='Unknown').length;
+  const unknownBrand=rows.filter(r=>r.brand==='Unknown').length;
+  const missingName=rows.filter(r=>r.tags.includes('Missing Name')).length;
+  const totalRows=rows.filter(r=>r.tags.includes('Total Row')).length;
+  const clean=rows.filter(r=>r.tags.length===1&&r.tags[0]==='Clean').length;
+  return {total,clean,unknownPlatform,unknownBrand,missingName,totalRows,cleanRate:clean/Math.max(total,1)};
+}
+function renderHodo(){
+  const rows=cleanHodoRows();
+  const health=hodoHealth(rows);
+  const src=rows.filter(r=>r.spend>0||r.revenue>0).sort((a,b)=>b.roas-a.roas);
+  const byRange=groupClean(rows,'dateRange',['spend','revenue','clicks','impressions']).map(x=>({...x,roas:x.revenue/Math.max(x.spend,1)}));
+  const byPlatform=groupClean(rows,'platform',['spend','revenue','clicks','impressions']).map(x=>({...x,roas:x.revenue/Math.max(x.spend,1)})).sort((a,b)=>b.revenue-a.revenue);
+  const vendor=parseVendorSummary();
+  const review=rows.filter(r=>r.tags[0]!=='Clean').slice(0,12);
+  document.getElementById('panel-hodo').innerHTML=`
+    <div class="hero"><div><h1>SST&amp;C 禾多廣告數據戰情室</h1><p>廠商周報清洗、廣告成效、資料健康檢查與 AI 診斷</p></div><div class="note">來源：Manual Excel + Hodo Vendor Report<br>最後更新：${raw?.generatedAt||''}</div></div>
+    ${kpis([{label:'曝光',value:fmtInt(rows.reduce((a,r)=>a+r.impressions,0))},{label:'CTR',value:fmtPct(rows.reduce((a,r)=>a+r.clicks,0)/Math.max(rows.reduce((a,r)=>a+r.impressions,0),1))},{label:'CPC',value:fmtMoney(rows.reduce((a,r)=>a+r.spend,0)/Math.max(rows.reduce((a,r)=>a+r.clicks,0),1))},{label:'購買次數',value:fmtInt(rows.reduce((a,r)=>a+r.orders,0))},{label:'廣告花費',value:fmtMoney(rows.reduce((a,r)=>a+r.spend,0))},{label:'廣告營收',value:fmtMoney(rows.reduce((a,r)=>a+r.revenue,0))}])}
+    <div class="card wide"><h2>資料健康檢查</h2>
+      <div class="kpis">
+        ${healthCard('清洗成功率',(health.cleanRate*100).toFixed(1)+'%','Clean rows / all rows')}
+        ${healthCard('Unknown Platform',fmtInt(health.unknownPlatform),'需要平台判斷')}
+        ${healthCard('Unknown Brand',fmtInt(health.unknownBrand),'需要品牌判斷')}
+        ${healthCard('Missing Name',fmtInt(health.missingName),'缺活動/受眾/素材名稱')}
+        ${healthCard('Total Row',fmtInt(health.totalRows),'匯入時需排除或標記')}
+        ${healthCard('原始周報 Sheets',fmtInt(vendor.length),'天喜國際周報')}
+      </div>
+      <div class="note">禾多廠商報表會混合活動、受眾、週總表與備註，系統會先推斷平台/品牌/類型並標記需要人工檢查的資料。</div>
+      ${aiBlock('ai-hodo-health','AI 分析資料健康','health')}
+    </div>
+    <div class="grid">
+      <div class="card"><h2>每週花費與 ROAS 趨勢</h2><div class="chart-box"><canvas id="hodoTrend"></canvas></div>${aiBlock('ai-hodo-trend','AI 分析此趨勢','trend')}</div>
+      <div class="card"><h2>平台營收分布</h2><div class="chart-box"><canvas id="hodoPie"></canvas></div>${aiBlock('ai-hodo-source','AI 分析平台分布','source')}</div>
+      <div class="card wide"><h2>清洗後廣告成效排行</h2>${table(src,[['名稱','name'],['平台','platform'],['類型','adType'],['曝光','impressions',fmtInt],['點擊','clicks',fmtInt],['花費','spend',fmtMoney],['營收','revenue',fmtMoney],['ROAS','roas',v=>v.toFixed(2)]],15)}${aiBlock('ai-hodo-ranking','AI 分析成效排行','ranking')}</div>
+      <div class="card"><h2>原始周報解析摘要</h2>${table(vendor,[['Sheet','sheet'],['品牌','brand'],['週期','period'],['資料列','dataRows',fmtInt],['總計列','totalRows',fmtInt],['備註','notes',fmtInt]],12)}</div>
+      <div class="card"><h2>需人工檢查清單</h2>${table(review,[['名稱','name'],['品牌','brand'],['平台','platform'],['類型','adType'],['標籤','tags',v=>Array.isArray(v)?v.join(', '):v]],12)}</div>
+    </div>`;
+  chart('hodoTrend','bar',byRange.map(x=>x.name||'未標日期'),[{label:'花費',data:byRange.map(x=>x.spend),backgroundColor:'#333'},{type:'line',label:'ROAS',data:byRange.map(x=>x.roas),borderColor:'#b3902c',yAxisID:'y1'}],{scales:{y1:{position:'right'}}});
+  chart('hodoPie','doughnut',byPlatform.map(x=>x.name),[{data:byPlatform.map(x=>x.revenue),backgroundColor:palette()}]);
+}
 function palette(){return ['#b3902c','#d0b05a','#e0ca89','#8b7b55','#383530','#c8b985','#a6893e','#eee3c2','#6d6041','#f3d66a']}
 init();
 </script>
