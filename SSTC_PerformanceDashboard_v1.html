@@ -348,9 +348,10 @@ function parseVendorSummary(){
 function hodoGlobalContext(rows){
   const totalSpend=rows.reduce((a,r)=>a+r.spend,0),totalRevenue=rows.reduce((a,r)=>a+r.revenue,0);
   const byPlatform=groupClean(rows,'platform',['spend','revenue','clicks','impressions']);
-  const top=rows.filter(r=>r.spend>0).sort((a,b)=>b.roas-a.roas).slice(0,8).map(r=>({name:r.name,platform:r.platform,adType:r.adType,spend:r.spend,revenue:r.revenue,roas:r.roas}));
+  const top=rows.filter(r=>r.spend>0).sort((a,b)=>b.roas-a.roas).slice(0,5).map(r=>({name:shortText(r.name,40),platform:r.platform,adType:r.adType,spend:Math.round(r.spend),revenue:Math.round(r.revenue),roas:Number(r.roas.toFixed(2))}));
   return {source:'Hodo vendor report + manually normalized Excel',totalRows:rows.length,totalSpend,totalRevenue,roas:totalRevenue/Math.max(totalSpend,1),byPlatform,top};
 }
+function shortText(value,len=50){const text=String(value||'');return text.length>len?text.slice(0,len)+'...':text}
 function groupClean(rows,key,metrics){
   const m=new Map();rows.forEach(r=>{const k=r[key]||'其他';if(!m.has(k))m.set(k,{name:k,rows:0});const o=m.get(k);o.rows++;metrics.forEach(x=>o[x]=(o[x]||0)+(r[x]||0));});return [...m.values()];
 }
@@ -367,7 +368,7 @@ async function runSectionAI(targetId,scope){
   const context=hodoGlobalContext(rows);
   let sectionData={};
   if(scope==='trend')sectionData=groupClean(rows,'dateRange',['spend','revenue','clicks','impressions']).map(x=>({...x,roas:x.revenue/Math.max(x.spend,1)}));
-  if(scope==='ranking')sectionData=rows.filter(r=>r.spend>0).sort((a,b)=>b.roas-a.roas).slice(0,15).map(r=>({name:r.name,platform:r.platform,adType:r.adType,spend:r.spend,revenue:r.revenue,orders:r.orders,roas:r.roas}));
+  if(scope==='ranking')sectionData=rows.filter(r=>r.spend>0).sort((a,b)=>b.roas-a.roas).slice(0,8).map(r=>({name:shortText(r.name,44),platform:r.platform,adType:r.adType,spend:Math.round(r.spend),revenue:Math.round(r.revenue),orders:Math.round(r.orders),roas:Number(r.roas.toFixed(2))}));
   if(scope==='health')sectionData=hodoHealth(rows);
   if(scope==='source')sectionData=groupClean(rows,'platform',['spend','revenue','clicks','impressions']).map(x=>({...x,roas:x.revenue/Math.max(x.spend,1)}));
   try{

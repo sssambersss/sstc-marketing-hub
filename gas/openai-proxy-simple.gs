@@ -21,6 +21,21 @@ function doGet() {
   });
 }
 
+function authorizeOnce() {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY');
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is not set');
+  }
+  var response = UrlFetchApp.fetch('https://api.openai.com/v1/models', {
+    method: 'get',
+    headers: {
+      Authorization: 'Bearer ' + apiKey
+    },
+    muteHttpExceptions: true
+  });
+  Logger.log('Authorization check status: ' + response.getResponseCode());
+}
+
 function doPost(e) {
   try {
     var body = JSON.parse(e.postData.contents || '{}');
@@ -34,6 +49,18 @@ function doPost(e) {
 }
 
 function handleRequest(body) {
+  if (body && body.mode === 'health') {
+    var apiKey = PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY');
+    var model = PropertiesService.getScriptProperties().getProperty('OPENAI_MODEL') || 'gpt-5-mini';
+    return {
+      ok: true,
+      service: 'sstc-openai-proxy',
+      version: '2026-05-11-analytics-v2',
+      hasApiKey: !!apiKey,
+      model: model,
+      supports: ['copy', 'analytics']
+    };
+  }
   if (body && body.mode === 'analytics') {
     return generateAnalytics(body);
   }
