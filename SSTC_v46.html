@@ -640,7 +640,7 @@ body{font-family:var(--font-body);font-size:15px;color:var(--ink);background:var
   <button class="nav-btn" data-panel="conflicts" onclick="switchNav('conflicts',this)">⚠ 衝突偵測</button>
   <button class="nav-btn" data-panel="tasks" onclick="switchNav('tasks',this)">✓ 任務清單</button>
   <button class="nav-btn" data-panel="ads" onclick="switchNav('ads',this)">▶ 廣告管理</button>
-  <button class="nav-btn" data-panel="perf" onclick="switchNav('perf',this)">◎ 成效儀表板</button>
+  <button class="nav-btn" data-panel="perf" onclick="openPerformanceDashboard(event)">◎ 數據戰情室</button>
   <button id="nav-form" class="nav-btn" data-panel="form" onclick="switchNav('form',this)" style="display:none">新增活動</button>
 </div>
 
@@ -1263,6 +1263,11 @@ function switchNav(panel,btn){
     else if(panel==='ads'){if(typeof loadAds==='function')loadAds();if(typeof renderAds==='function')renderAds();}
     else if(panel==='perf'){if(typeof loadPerfData==='function')loadPerfData();if(typeof renderPerf==='function')renderPerf();}
   }catch(e){console.error('switchNav render error:',e);}
+}
+
+function openPerformanceDashboard(e){
+  if(e)e.preventDefault();
+  window.open('SSTC_PerformanceDashboard_v1.html','_blank');
 }
 
 // ══════════════════════════════════════════════
