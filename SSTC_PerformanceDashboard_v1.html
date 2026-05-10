@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SST&C Performance Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Noto+Serif+TC:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{
+  --paper:#fffdf7;--cream:#faf6e9;--cream2:#f5efd9;--gold:#b3902c;--gold2:#d6bd6c;
+  --ink:#2a2418;--muted:#6b5a36;--line:#d9be69;--dark:#28251f;--ok:#3c7a35;--bad:#b64b35;
+  --shadow:0 10px 28px rgba(64,45,8,.08);--font-display:'Cinzel',serif;--font-body:'Noto Serif TC',serif;
+}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font-body);font-size:14px}
+.topbar{position:sticky;top:0;z-index:20;background:rgba(255,253,247,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(8px)}
+.top-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:1240px;margin:auto;padding:18px 22px}
+.brand{display:flex;align-items:center;gap:14px}.brand-mark{font-family:var(--font-display);letter-spacing:5px;color:var(--gold);font-weight:600;border:1px solid var(--line);padding:5px 14px}
+.brand-title{font-weight:700;font-size:18px}.brand-sub{font-size:12px;color:var(--muted);margin-top:2px}.top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn,.select,.input{height:34px;border:1px solid var(--line);background:#fffefa;color:var(--ink);font-family:var(--font-body);padding:0 10px}
+.btn{cursor:pointer;font-family:var(--font-display);font-size:10px;letter-spacing:1.5px}.btn.gold{background:var(--gold);color:white}.btn:hover{background:var(--cream2)}
+.wrap{max-width:1240px;margin:auto;padding:22px}.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+.tab{border:1px solid var(--line);background:#fffefa;padding:10px 16px;font-family:var(--font-display);font-size:10px;letter-spacing:2px;cursor:pointer;color:var(--muted)}
+.tab.active{background:var(--gold);color:white}.panel{display:none}.panel.active{display:block}
+.hero{display:flex;align-items:end;justify-content:space-between;gap:16px;background:linear-gradient(90deg,#fff7c7,#f3df7e);border:1px solid var(--line);padding:20px 24px;margin-bottom:20px}
+.hero h1{margin:0 0 4px;font-size:24px}.hero p{margin:0;color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:22px}.kpi{background:#fffefa;border:1px solid var(--line);padding:12px;text-align:center;box-shadow:var(--shadow)}
+.kpi .label{color:var(--muted);font-size:12px}.kpi .value{font-size:24px;margin:4px 0}.kpi .delta{font-size:11px;color:var(--bad)}.kpi .delta.good{color:var(--ok)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:24px}.card{background:#fffefa;border:1px solid var(--line);border-radius:8px;padding:16px;box-shadow:var(--shadow);min-width:0}
+.card.wide{grid-column:1/-1}.card h2{font-size:16px;margin:0 0 12px;color:var(--muted)}.chart-box{height:310px}.chart-box.sm{height:250px}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px}.table{width:100%;border-collapse:collapse;font-size:12px;background:#fff}.table th{background:var(--dark);color:white;position:sticky;top:0;z-index:1}
+.table th,.table td{padding:7px 8px;border-bottom:1px solid #ead99b;text-align:right;white-space:nowrap}.table th:first-child,.table td:first-child{text-align:left}.table tr:nth-child(even){background:#fbf6e7}
+.note{font-size:12px;color:var(--muted);line-height:1.7;margin-top:8px}.ai-box{display:grid;grid-template-columns:320px 1fr;gap:16px}.ai-side{background:var(--cream);border:1px solid var(--line);padding:14px}
+.ai-out{min-height:240px;background:#fffefa;border:1px solid var(--line);padding:16px;line-height:1.8;white-space:pre-wrap}.pill-list{display:flex;flex-wrap:wrap;gap:6px}.pill{background:var(--cream2);border:1px solid var(--line);padding:4px 8px;font-size:12px}
+.funnel{display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;align-items:center;gap:12px;background:#fff3bd;border:1px solid var(--line);padding:18px}.funnel-step{background:#fffefa;border:1px solid var(--gold);text-align:center;padding:12px}.arrow{font-size:28px;color:var(--gold);text-align:center}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.grid,.ai-box{grid-template-columns:1fr}.hero{display:block}.top-inner{align-items:start;flex-direction:column}.chart-box{height:260px}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="top-inner">
+    <div class="brand">
+      <div class="brand-mark">SST&amp;C</div>
+      <div>
+        <div class="brand-title">數據戰情室</div>
+        <div class="brand-sub">Marketing Performance Dashboard</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <select id="brandFilter" class="select" onchange="renderAll()"><option value="all">全部品牌</option><option>SST&amp;C</option><option>ARVOpm</option></select>
+      <select id="sourceFilter" class="select" onchange="renderAll()"><option value="all">全部來源</option></select>
+      <input id="aiEndpoint" class="input" placeholder="AI 服務網址 GAS" style="width:250px">
+      <button class="btn" onclick="saveAIEndpoint()">儲存 AI</button>
+      <a class="btn" href="SSTC_v46.html" style="text-decoration:none">回主系統</a>
+    </div>
+  </div>
+</div>
+<main class="wrap">
+  <div class="tabs">
+    <button class="tab active" onclick="showPanel('ga4',this)">GA4 總覽</button>
+    <button class="tab" onclick="showPanel('app91',this)">91APP</button>
+    <button class="tab" onclick="showPanel('hodo',this)">禾多廣告</button>
+    <button class="tab" onclick="showPanel('line',this)">LINE / 漸強</button>
+    <button class="tab" onclick="showPanel('fb',this)">FB 社群</button>
+    <button class="tab" onclick="showPanel('ai',this)">AI 數據分析</button>
+  </div>
+  <section id="panel-ga4" class="panel active"></section>
+  <section id="panel-app91" class="panel"></section>
+  <section id="panel-hodo" class="panel"></section>
+  <section id="panel-line" class="panel"></section>
+  <section id="panel-fb" class="panel"></section>
+  <section id="panel-ai" class="panel"></section>
+</main>
+<script>
+const DATA_URL='data/performance-data.json';
+let raw=null, charts={};
+const fmtMoney=n=>'$'+Math.round(num(n)).toLocaleString('en-US');
+const fmtInt=n=>Math.round(num(n)).toLocaleString('en-US');
+const fmtPct=n=>(num(n)*100).toFixed(2)+'%';
+const num=v=>{if(v===null||v===undefined||v===''||String(v).includes('#DIV'))return 0;const n=Number(v);return isNaN(n)?0:n};
+function excelDate(v){const n=num(v);if(!n)return '';const d=new Date(Math.round((n-25569)*86400*1000));return d.toISOString().slice(0,10)}
+function sheet(name){return (raw&&raw.sheets&&raw.sheets[name])||[]}
+function byBrand(rows){const b=document.getElementById('brandFilter').value;return b==='all'?rows:rows.filter(r=>(r['品牌']||'')===b)}
+function bySource(rows,key){const s=document.getElementById('sourceFilter').value;return s==='all'?rows:rows.filter(r=>String(r[key]||'').toLowerCase()===s.toLowerCase())}
+function sum(rows,key){return rows.reduce((a,r)=>a+num(r[key]),0)}
+function avg(rows,key){const vals=rows.map(r=>num(r[key])).filter(Boolean);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0}
+function group(rows,key,metrics){const m=new Map();rows.forEach(r=>{const k=r[key]||'其他';if(!m.has(k))m.set(k,{name:k,rows:0});const o=m.get(k);o.rows++;metrics.forEach(x=>o[x]=(o[x]||0)+num(r[x]));});return [...m.values()]}
+function destroy(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
+function chart(id,type,labels,datasets,opts={}){destroy(id);charts[id]=new Chart(document.getElementById(id),{type,data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},...opts}})}
+function kpis(items){return `<div class="kpis">${items.map(i=>`<div class="kpi"><div class="label">${i.label}</div><div class="value">${i.value}</div><div class="delta ${i.good?'good':''}">${i.delta||''}</div></div>`).join('')}</div>`}
+function table(rows,cols,limit=10){return `<div class="table-wrap"><table class="table"><thead><tr>${cols.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,limit).map(r=>`<tr>${cols.map(c=>`<td>${c[2]?c[2](r[c[1]],r):r[c[1]]}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}
+function showPanel(id,btn){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+id).classList.add('active');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');setTimeout(renderAll,30)}
+function saveAIEndpoint(){localStorage.setItem('sstc_ai_endpoint',document.getElementById('aiEndpoint').value.trim());alert('AI 服務網址已儲存')}
+function getAIEndpoint(){return (localStorage.getItem('sstc_ai_endpoint')||'').trim()}
+
+async function init(){
+  document.getElementById('aiEndpoint').value=getAIEndpoint();
+  raw=await fetch(DATA_URL).then(r=>r.json());
+  const sources=[...new Set(sheet('91APP｜綜合數據').map(r=>r['來源/媒介']).filter(Boolean))].slice(0,80);
+  document.getElementById('sourceFilter').innerHTML='<option value="all">全部來源</option>'+sources.map(s=>`<option>${s}</option>`).join('');
+  renderAll();
+}
+function renderAll(){if(!raw)return;renderGA4();render91();renderHodo();renderLine();renderFB();renderAI();}
+function renderGA4(){
+  const rows=bySource(sheet('91APP｜綜合數據'),'來源/媒介');
+  const ref=byBrand(sheet('統一成效表'));
+  const src=group(rows,'來源/媒介',['工作階段數','線上訂單數 (TG)','線上訂單金額 (TG)','OMO總營收','不重複訪客數']).sort((a,b)=>b['工作階段數']-a['工作階段數']);
+  document.getElementById('panel-ga4').innerHTML=`
+    <div class="hero"><div><h1>SST&amp;C GA4 數據戰情室</h1><p>流量、訂單、營收與來源品質總覽</p></div><div class="note">資料列數 ${fmtInt(rows.length)}</div></div>
+    ${kpis([
+      {label:'總營收',value:fmtMoney(sum(rows,'OMO總營收')),delta:'OMO + online'},
+      {label:'線上訂單金額',value:fmtMoney(sum(rows,'線上訂單金額 (TG)')),delta:'TG revenue'},
+      {label:'線上訂單數',value:fmtInt(sum(rows,'線上訂單數 (TG)')),delta:'orders'},
+      {label:'工作階段',value:fmtInt(sum(rows,'工作階段數')),delta:'sessions'},
+      {label:'不重複訪客',value:fmtInt(sum(rows,'不重複訪客數')),delta:'users'},
+      {label:'廣告 ROAS',value:avg(ref,'ROAS').toFixed(2),delta:'ad avg'}
+    ])}
+    <div class="grid">
+      <div class="card wide"><h2>流量來源成效排行</h2>${table(src,[['來源/媒介','name'],['工作階段','工作階段數',fmtInt],['訂單','線上訂單數 (TG)',fmtInt],['營收','線上訂單金額 (TG)',fmtMoney],['OMO 營收','OMO總營收',fmtMoney]],12)}<div class="note">可用來判斷自然流量、付費流量、LINE/Push、EDM 等來源的量與轉換品質。</div></div>
+      <div class="card"><h2>各來源流量占比</h2><div class="chart-box sm"><canvas id="ga4Pie"></canvas></div></div>
+      <div class="card"><h2>各來源營收比較</h2><div class="chart-box sm"><canvas id="ga4Bar"></canvas></div></div>
+      <div class="card wide"><h2>線上轉換流程指標</h2><div class="funnel"><div class="funnel-step"><b>工作階段</b><br>${fmtInt(sum(rows,'工作階段數'))}</div><div class="arrow">→</div><div class="funnel-step"><b>線上訂單</b><br>${fmtInt(sum(rows,'線上訂單數 (TG)'))}</div><div class="arrow">→</div><div class="funnel-step"><b>線上訂單金額</b><br>${fmtMoney(sum(rows,'線上訂單金額 (TG)'))}</div></div></div>
+    </div>`;
+  chart('ga4Pie','doughnut',src.slice(0,9).map(x=>x.name),[{data:src.slice(0,9).map(x=>x['工作階段數']),backgroundColor:palette()}]);
+  chart('ga4Bar','bar',src.slice(0,10).map(x=>x.name),[{label:'OMO 營收',data:src.slice(0,10).map(x=>x['OMO總營收']),backgroundColor:'#b3902c'}]);
+}
+function render91(){
+  const rows=bySource(sheet('91APP｜綜合數據'),'來源/媒介');
+  const byWeek=group(rows,'時間/週次',['工作階段數','線上訂單金額 (TG)','線上訂單數 (TG)','不重複訪客數']).sort((a,b)=>Number(a.name)-Number(b.name));
+  const bySrc=group(rows,'來源/媒介',['工作階段數','線上訂單金額 (TG)','OMO總營收']).sort((a,b)=>b['OMO總營收']-a['OMO總營收']);
+  document.getElementById('panel-app91').innerHTML=`
+    <div class="hero"><div><h1>SST&amp;C 91APP 數據戰情室</h1><p>站內流量、訂單、OMO 營收與來源貢獻</p></div></div>
+    ${kpis([{label:'OMO 總營收',value:fmtMoney(sum(rows,'OMO總營收'))},{label:'線上訂單金額',value:fmtMoney(sum(rows,'線上訂單金額 (TG)'))},{label:'線上訂單數',value:fmtInt(sum(rows,'線上訂單數 (TG)'))},{label:'工作階段',value:fmtInt(sum(rows,'工作階段數'))},{label:'不重複訪客',value:fmtInt(sum(rows,'不重複訪客數'))},{label:'轉換率',value:(sum(rows,'線上訂單數 (TG)')/Math.max(sum(rows,'工作階段數'),1)*100).toFixed(2)+'%'}])}
+    <div class="grid">
+      <div class="card"><h2>營收趨勢圖（週次）</h2><div class="chart-box"><canvas id="appRev"></canvas></div></div>
+      <div class="card"><h2>流量趨勢圖（週次）</h2><div class="chart-box"><canvas id="appTraffic"></canvas></div></div>
+      <div class="card"><h2>各來源流量占比</h2><div class="chart-box sm"><canvas id="appPie"></canvas></div></div>
+      <div class="card"><h2>各來源營收比較</h2><div class="chart-box sm"><canvas id="appSrc"></canvas></div></div>
+    </div>`;
+  chart('appRev','line',byWeek.map(x=>'W'+x.name),[{label:'OMO 營收',data:byWeek.map(x=>x['OMO總營收']),borderColor:'#b3902c',backgroundColor:'#d6bd6c'}]);
+  chart('appTraffic','line',byWeek.map(x=>'W'+x.name),[{label:'工作階段',data:byWeek.map(x=>x['工作階段數']),borderColor:'#b3902c'},{label:'不重複訪客',data:byWeek.map(x=>x['不重複訪客數']),borderColor:'#333'}]);
+  chart('appPie','doughnut',bySrc.slice(0,9).map(x=>x.name),[{data:bySrc.slice(0,9).map(x=>x['工作階段數']),backgroundColor:palette()}]);
+  chart('appSrc','bar',bySrc.slice(0,10).map(x=>x.name),[{label:'OMO 營收',data:bySrc.slice(0,10).map(x=>x['OMO總營收']),backgroundColor:'#b3902c'}]);
+}
+function renderHodo(){
+  const rows=byBrand(sheet('統一成效表'));
+  const ads=rows.filter(r=>String(r['平台']||'').toLowerCase().includes('meta')||String(r['平台']||'').toLowerCase().includes('google')||String(r['平台']||'').toLowerCase().includes('hodo'));
+  const src=group(ads,'廣告名稱',['曝光次數','點擊次數','花費','購買金額','購買次數']).map(x=>({...x,ROAS:x['購買金額']/Math.max(x['花費'],1),CTR:x['點擊次數']/Math.max(x['曝光次數'],1),CPC:x['花費']/Math.max(x['點擊次數'],1)})).sort((a,b)=>b.ROAS-a.ROAS);
+  document.getElementById('panel-hodo').innerHTML=`
+    <div class="hero"><div><h1>SST&amp;C 禾多 / 廣告數據戰情室</h1><p>廣告投放、素材、受眾與 ROAS 排行</p></div></div>
+    ${kpis([{label:'曝光',value:fmtInt(sum(ads,'曝光次數'))},{label:'CTR',value:fmtPct(sum(ads,'點擊次數')/Math.max(sum(ads,'曝光次數'),1))},{label:'CPC',value:fmtMoney(sum(ads,'花費')/Math.max(sum(ads,'點擊次數'),1))},{label:'購買次數',value:fmtInt(sum(ads,'購買次數'))},{label:'廣告花費',value:fmtMoney(sum(ads,'花費'))},{label:'廣告營收',value:fmtMoney(sum(ads,'購買金額'))}])}
+    <div class="grid">
+      <div class="card"><h2>每週花費與 ROAS 趨勢</h2><div class="chart-box"><canvas id="hodoTrend"></canvas></div></div>
+      <div class="card"><h2>進站流量分布</h2><div class="chart-box"><canvas id="hodoPie"></canvas></div></div>
+      <div class="card wide"><h2>FB / Google 廣告成效排行</h2>${table(src,[['廣告名稱','name'],['曝光','曝光次數',fmtInt],['點擊','點擊次數',fmtInt],['CTR','CTR',v=>(v*100).toFixed(2)+'%'],['花費','花費',fmtMoney],['ROAS','ROAS',v=>v.toFixed(2)]],12)}</div>
+    </div>`;
+  const byRange=group(ads,'日期範圍',['花費','購買金額']).map(x=>({...x,ROAS:x['購買金額']/Math.max(x['花費'],1)}));
+  chart('hodoTrend','bar',byRange.map(x=>x.name),[{label:'花費',data:byRange.map(x=>x['花費']),backgroundColor:'#333'},{type:'line',label:'ROAS',data:byRange.map(x=>x.ROAS),borderColor:'#b3902c',yAxisID:'y1'}],{scales:{y1:{position:'right'}}});
+  chart('hodoPie','doughnut',src.slice(0,8).map(x=>x.name||'未命名'),[{data:src.slice(0,8).map(x=>x['點擊次數']),backgroundColor:palette()}]);
+}
+function renderLine(){
+  const line=sheet('漸強｜LINE OA');
+  const top=[...line].map(r=>({...r,openRate:num(String(r['open_rate']).replace('%',''))||num(r['open_rate'])})).sort((a,b)=>num(b['sent'])-num(a['sent']));
+  document.getElementById('panel-line').innerHTML=`
+    <div class="hero"><div><h1>SST&amp;C LINE / 漸強 / 91APP 戰情室</h1><p>推播、開信、點擊與站內轉換</p></div></div>
+    ${kpis([{label:'總發送量',value:fmtInt(sum(line,'sent'))},{label:'總點擊',value:fmtInt(sum(line,'clicks'))},{label:'訂單數',value:fmtInt(sum(line,'orders'))},{label:'營收',value:fmtMoney(sum(line,'revenue'))},{label:'加購',value:fmtInt(sum(line,'adds_to_cart'))},{label:'平均點擊率',value:(avg(line,'click_rate')||0).toFixed(2)+'%'}])}
+    <div class="grid">
+      <div class="card wide"><h2>發送 / 點擊趨勢</h2><div class="chart-box"><canvas id="lineTrend"></canvas></div></div>
+      <div class="card"><h2>Top 10 訊息點擊排行</h2>${table(top,[['訊息名稱','name'],['分眾','segment'],['發送','sent',fmtInt],['點擊','clicks',fmtInt],['訂單','orders',fmtInt]],10)}</div>
+      <div class="card"><h2>TOP 10 分群表現比較</h2><div class="chart-box sm"><canvas id="lineSeg"></canvas></div></div>
+    </div>`;
+  const byDate=group(line,'sent_date',['sent','clicks']).slice(-40);
+  chart('lineTrend','bar',byDate.map(x=>excelDate(x.name)),[{label:'sent',data:byDate.map(x=>x.sent),backgroundColor:'#b3902c'},{type:'line',label:'clicks',data:byDate.map(x=>x.clicks),borderColor:'#333',yAxisID:'y1'}],{scales:{y1:{position:'right'}}});
+  const seg=group(line,'segment',['sent','clicks']).sort((a,b)=>b.clicks-a.clicks).slice(0,10);
+  chart('lineSeg','bar',seg.map(x=>x.name),[{label:'點擊',data:seg.map(x=>x.clicks),backgroundColor:'#b3902c'}]);
+}
+function renderFB(){
+  const rows=byBrand(sheet('統一成效表')).filter(r=>String(r['平台']||'').toLowerCase().includes('meta'));
+  const byRange=group(rows,'日期範圍',['曝光次數','點擊次數']);
+  document.getElementById('panel-fb').innerHTML=`
+    <div class="hero"><div><h1>SST&amp;C FB 數據戰情室</h1><p>曝光、互動、付費 / 自然流量與素材表現</p></div></div>
+    ${kpis([{label:'總曝光 Impressions',value:fmtInt(sum(rows,'曝光次數'))},{label:'互動 Clicks',value:fmtInt(sum(rows,'點擊次數'))},{label:'互動率 CTR',value:fmtPct(sum(rows,'點擊次數')/Math.max(sum(rows,'曝光次數'),1))},{label:'花費',value:fmtMoney(sum(rows,'花費'))},{label:'購買金額',value:fmtMoney(sum(rows,'購買金額'))},{label:'ROAS',value:(sum(rows,'購買金額')/Math.max(sum(rows,'花費'),1)).toFixed(2)}])}
+    <div class="grid">
+      <div class="card wide"><h2>曝光 vs 互動 趨勢</h2><div class="chart-box"><canvas id="fbTrend"></canvas></div></div>
+      <div class="card"><h2>受眾表現排行</h2>${table(group(rows,'受眾名稱',['曝光次數','點擊次數','花費','購買金額']).sort((a,b)=>b['購買金額']-a['購買金額']),[['受眾','name'],['曝光','曝光次數',fmtInt],['點擊','點擊次數',fmtInt],['花費','花費',fmtMoney],['營收','購買金額',fmtMoney]],10)}</div>
+      <div class="card"><h2>素材表現排行</h2>${table(group(rows,'素材名稱',['曝光次數','點擊次數','花費','購買金額']).sort((a,b)=>b['購買金額']-a['購買金額']),[['素材','name'],['曝光','曝光次數',fmtInt],['點擊','點擊次數',fmtInt],['ROAS','購買金額',(v,r)=>(r['購買金額']/Math.max(r['花費'],1)).toFixed(2)]],10)}</div>
+    </div>`;
+  chart('fbTrend','line',byRange.map(x=>x.name),[{label:'曝光',data:byRange.map(x=>x['曝光次數']),borderColor:'#b3902c'},{label:'點擊',data:byRange.map(x=>x['點擊次數']),borderColor:'#333',yAxisID:'y1'}],{scales:{y1:{position:'right'}}});
+}
+function localInsights(){
+  const ads=byBrand(sheet('統一成效表'));
+  const app=bySource(sheet('91APP｜綜合數據'),'來源/媒介');
+  const bestAd=group(ads,'廣告名稱',['花費','購買金額','點擊次數']).map(x=>({...x,roas:x['購買金額']/Math.max(x['花費'],1)})).sort((a,b)=>b.roas-a.roas)[0];
+  const bestSrc=group(app,'來源/媒介',['OMO總營收','工作階段數']).sort((a,b)=>b['OMO總營收']-a['OMO總營收'])[0];
+  return [
+    `目前最高 ROAS 廣告：${bestAd?.name||'未命名'}，ROAS 約 ${bestAd?bestAd.roas.toFixed(2):'0'}。`,
+    `最高 OMO 營收來源：${bestSrc?.name||'未命名'}，營收 ${bestSrc?fmtMoney(bestSrc['OMO總營收']):'$0'}。`,
+    '建議優先檢查高 ROAS 廣告的受眾與素材組合，複製到相近活動做 A/B 測試。',
+    '低 CTR 但高營收來源可能代表受眾精準，適合拉高預算；高 CTR 低營收來源則要檢查落地頁與商品關聯。',
+    'LINE/Push 可用於再行銷，將高瀏覽未購買名單分成 7 天、14 天、30 天三組，搭配不同折扣強度。'
+  ].join('\n\n');
+}
+function renderAI(){
+  document.getElementById('panel-ai').innerHTML=`
+    <div class="hero"><div><h1>AI 數據分析</h1><p>成效表現、預算建議、受眾圈選與下一步行動</p></div></div>
+    <div class="ai-box">
+      <div class="ai-side">
+        <h2>分析範圍</h2>
+        <div class="pill-list"><span class="pill">GA4</span><span class="pill">91APP</span><span class="pill">Meta</span><span class="pill">Google PMAX</span><span class="pill">LINE</span><span class="pill">Hodo</span></div>
+        <p class="note">沒有 AI 服務時會先使用本機規則分析；接上 GAS 後可產生更完整的策略建議。</p>
+        <button class="btn gold" onclick="runAIAnalysis()">產生 AI 分析</button>
+      </div>
+      <div class="ai-out" id="aiOutput">${localInsights()}</div>
+    </div>`;
+}
+function analysisPayload(){
+  const ads=byBrand(sheet('統一成效表'));const app=bySource(sheet('91APP｜綜合數據'),'來源/媒介');const line=sheet('漸強｜LINE OA');
+  return {mode:'analytics',metrics:{brand:document.getElementById('brandFilter').value,source:document.getElementById('sourceFilter').value,adSpend:sum(ads,'花費'),adRevenue:sum(ads,'購買金額'),adClicks:sum(ads,'點擊次數'),adImpressions:sum(ads,'曝光次數'),orders:sum(app,'線上訂單數 (TG)'),omoRevenue:sum(app,'OMO總營收'),sessions:sum(app,'工作階段數'),lineSent:sum(line,'sent'),lineClicks:sum(line,'clicks')},topAds:group(ads,'廣告名稱',['花費','購買金額','點擊次數']).slice(0,15),topSources:group(app,'來源/媒介',['OMO總營收','工作階段數','線上訂單數 (TG)']).slice(0,15)};
+}
+async function runAIAnalysis(){
+  const out=document.getElementById('aiOutput');out.textContent='AI 分析中...';
+  try{
+    const endpoint=getAIEndpoint();if(!endpoint){out.textContent=localInsights();return}
+    const res=await callJsonp(endpoint,analysisPayload());
+    out.textContent=res.analysis||res.text||JSON.stringify(res,null,2);
+  }catch(e){out.textContent='AI 分析暫時失敗，先顯示本機分析：\n\n'+localInsights()+'\n\n錯誤：'+e.message}
+}
+function callJsonp(endpoint,payload){return new Promise((resolve,reject)=>{const cb='sstcDash_'+Date.now();const s=document.createElement('script');const timer=setTimeout(()=>{cleanup();reject(new Error('AI 服務逾時'))},60000);function cleanup(){clearTimeout(timer);delete window[cb];if(s.parentNode)s.parentNode.removeChild(s)}window[cb]=d=>{cleanup();d&&d.ok?resolve(d):reject(new Error((d&&d.error)||'AI 無回應'))};s.onerror=()=>{cleanup();reject(new Error('AI 服務載入失敗'))};s.src=endpoint+(endpoint.includes('?')?'&':'?')+'callback='+cb+'&payload='+encodeURIComponent(JSON.stringify(payload));document.head.appendChild(s)})}
+function palette(){return ['#b3902c','#d0b05a','#e0ca89','#8b7b55','#383530','#c8b985','#a6893e','#eee3c2','#6d6041','#f3d66a']}
+init();
+</script>
+</body>
+</html>
