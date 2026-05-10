@@ -107,7 +107,7 @@ function destroy(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
 function chart(id,type,labels,datasets,opts={}){destroy(id);charts[id]=new Chart(document.getElementById(id),{type,data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},...opts}})}
 function kpis(items){return `<div class="kpis">${items.map(i=>`<div class="kpi"><div class="label">${i.label}</div><div class="value">${i.value}</div><div class="delta ${i.good?'good':''}">${i.delta||''}</div></div>`).join('')}</div>`}
 function table(rows,cols,limit=10){return `<div class="table-wrap"><table class="table"><thead><tr>${cols.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,limit).map(r=>`<tr>${cols.map(c=>`<td>${c[2]?c[2](r[c[1]],r):r[c[1]]}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}
-function showPanel(id,btn){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+id).classList.add('active');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');setTimeout(renderAll,30)}
+function showPanel(id,btn){if(window.currentPanelId&&window.currentPanelId!==id){sectionAIState={}}window.currentPanelId=id;document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+id).classList.add('active');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');setTimeout(renderAll,30)}
 function saveAIEndpoint(){localStorage.setItem('sstc_ai_endpoint',document.getElementById('aiEndpoint').value.trim());alert('AI 服務網址已儲存')}
 function getAIEndpoint(){return (localStorage.getItem('sstc_ai_endpoint')||'').trim()}
 function getDataSource(key){return (localStorage.getItem(key)||'').trim()}
@@ -273,6 +273,7 @@ async function runAIAnalysis(){
 function callJsonp(endpoint,payload){return new Promise((resolve,reject)=>{const cb='sstcDash_'+Date.now();const s=document.createElement('script');const timer=setTimeout(()=>{cleanup();reject(new Error('AI 服務逾時'))},60000);function cleanup(){clearTimeout(timer);delete window[cb];if(s.parentNode)s.parentNode.removeChild(s)}window[cb]=d=>{cleanup();d&&d.ok?resolve(d):reject(new Error((d&&d.error)||'AI 無回應'))};s.onerror=()=>{cleanup();reject(new Error('AI 服務載入失敗'))};s.src=endpoint+(endpoint.includes('?')?'&':'?')+'callback='+cb+'&payload='+encodeURIComponent(JSON.stringify(payload));document.head.appendChild(s)})}
 const HODO_VENDOR_URL='data/hodo-vendor-report.json';
 let hodoVendorRaw=null;
+let sectionAIState={};
 
 async function init(){
   document.getElementById('aiEndpoint').value=getAIEndpoint();
@@ -347,11 +348,17 @@ function parseVendorSummary(){
 }
 function hodoGlobalContext(rows){
   const totalSpend=rows.reduce((a,r)=>a+r.spend,0),totalRevenue=rows.reduce((a,r)=>a+r.revenue,0);
-  const byPlatform=groupClean(rows,'platform',['spend','revenue','clicks','impressions']);
-  const top=rows.filter(r=>r.spend>0).sort((a,b)=>b.roas-a.roas).slice(0,5).map(r=>({name:shortText(r.name,40),platform:r.platform,adType:r.adType,spend:Math.round(r.spend),revenue:Math.round(r.revenue),roas:Number(r.roas.toFixed(2))}));
+  const byPlatform=groupClean(rows,'platform',['spend','revenue']).map(x=>({name:x.name,spend:Math.round(x.spend),revenue:Math.round(x.revenue),roas:Number((x.revenue/Math.max(x.spend,1)).toFixed(2))})).slice(0,4);
+  const top=rows.filter(r=>r.spend>0).sort((a,b)=>b.roas-a.roas).slice(0,3).map(r=>({name:shortText(r.name,28),platform:r.platform,spend:Math.round(r.spend),revenue:Math.round(r.revenue),roas:Number(r.roas.toFixed(2))}));
   return {source:'Hodo vendor report + manually normalized Excel',totalRows:rows.length,totalSpend,totalRevenue,roas:totalRevenue/Math.max(totalSpend,1),byPlatform,top};
 }
 function shortText(value,len=50){const text=String(value||'');return text.length>len?text.slice(0,len)+'...':text}
+function compactHodoContext(ctx){return {totalRows:ctx.totalRows,totalSpend:Math.round(ctx.totalSpend),totalRevenue:Math.round(ctx.totalRevenue),roas:Number(ctx.roas.toFixed(2)),byPlatform:ctx.byPlatform,top:ctx.top}}
+function compactHodoSection(scope,data){
+  if(!Array.isArray(data))return data;
+  const limit=scope==='ranking'?5:6;
+  return data.slice(0,limit).map(x=>({name:shortText(x.name,28),platform:x.platform,adType:x.adType,spend:Math.round(x.spend||0),revenue:Math.round(x.revenue||0),orders:Math.round(x.orders||0),roas:Number((x.roas||0).toFixed(2))}));
+}
 function groupClean(rows,key,metrics){
   const m=new Map();rows.forEach(r=>{const k=r[key]||'其他';if(!m.has(k))m.set(k,{name:k,rows:0});const o=m.get(k);o.rows++;metrics.forEach(x=>o[x]=(o[x]||0)+(r[x]||0));});return [...m.values()];
 }
@@ -364,24 +371,27 @@ function aiBlock(id,label,scope){
 async function runSectionAI(targetId,scope){
   const rows=cleanHodoRows();
   const out=document.getElementById(targetId);
+  if(sectionAIState[targetId]){out.style.display='block';out.textContent=sectionAIState[targetId];return}
   out.style.display='block';out.textContent='AI 分析中...';
   const context=hodoGlobalContext(rows);
   let sectionData={};
   if(scope==='trend')sectionData=groupClean(rows,'dateRange',['spend','revenue','clicks','impressions']).map(x=>({...x,roas:x.revenue/Math.max(x.spend,1)}));
-  if(scope==='ranking')sectionData=rows.filter(r=>r.spend>0).sort((a,b)=>b.roas-a.roas).slice(0,8).map(r=>({name:shortText(r.name,44),platform:r.platform,adType:r.adType,spend:Math.round(r.spend),revenue:Math.round(r.revenue),orders:Math.round(r.orders),roas:Number(r.roas.toFixed(2))}));
+  if(scope==='ranking')sectionData=rows.filter(r=>r.spend>0).sort((a,b)=>b.roas-a.roas).slice(0,5).map(r=>({name:shortText(r.name,32),platform:r.platform,adType:r.adType,spend:Math.round(r.spend),revenue:Math.round(r.revenue),orders:Math.round(r.orders),roas:Number(r.roas.toFixed(2))}));
   if(scope==='health')sectionData=hodoHealth(rows);
   if(scope==='source')sectionData=groupClean(rows,'platform',['spend','revenue','clicks','impressions']).map(x=>({...x,roas:x.revenue/Math.max(x.spend,1)}));
   try{
     const endpoint=getAIEndpoint();
-    if(!endpoint){out.textContent=localHodoInsight(scope,context,sectionData);return}
-    const res=await callJsonp(endpoint,{mode:'analytics',section:'hodo-'+scope,metrics:{global:context,sectionData},instruction:'Analyze the selected Hodo dashboard section. Use the global Hodo context first, then explain this specific section. Write Traditional Chinese with concrete action suggestions.'});
+    if(!endpoint){sectionAIState[targetId]=localHodoInsight(scope,context,sectionData);out.textContent=sectionAIState[targetId];return}
+    const res=await callJsonp(endpoint,{mode:'analytics',section:'hodo-'+scope,metrics:{global:compactHodoContext(context),sectionData:compactHodoSection(scope,sectionData)},instruction:'Analyze the selected Hodo dashboard section. Use the global Hodo context first, then explain this specific section. Write Traditional Chinese with concrete action suggestions.'});
     if(res.options){
       out.textContent='目前這個 AI 服務網址還是「文案生成」版本，尚未更新成「數據分析」版本。\n\n請到 AI Proxy GAS 貼上新版 openai-proxy-simple.gs 並重新部署新版本。';
       return;
     }
-    out.textContent=res.analysis||res.text||JSON.stringify(res,null,2);
+    sectionAIState[targetId]=res.analysis||res.text||JSON.stringify(res,null,2);
+    out.textContent=sectionAIState[targetId];
   }catch(e){out.textContent=localHodoInsight(scope,context,sectionData)+'\n\nAI 暫時失敗：'+e.message}
 }
+function restoreSectionAI(){Object.keys(sectionAIState).forEach(id=>{const out=document.getElementById(id);if(out){out.style.display='block';out.textContent=sectionAIState[id]}})}
 function localHodoInsight(scope,ctx,data){
   const roas=ctx.roas.toFixed(2);
   if(scope==='health')return `整體禾多資料 ROAS 約 ${roas}，但資料來源為廠商周報加人工整理，應先處理 Unknown、Missing Name 與 Total Row。建議要求廠商固定提供：品牌、平台、活動名稱、廣告類型、週期、花費、營收、購買次數。`;
@@ -430,6 +440,7 @@ function renderHodo(){
     </div>`;
   chart('hodoTrend','bar',byRange.map(x=>x.name||'未標日期'),[{label:'花費',data:byRange.map(x=>x.spend),backgroundColor:'#333'},{type:'line',label:'ROAS',data:byRange.map(x=>x.roas),borderColor:'#b3902c',yAxisID:'y1'}],{scales:{y1:{position:'right'}}});
   chart('hodoPie','doughnut',byPlatform.map(x=>x.name),[{data:byPlatform.map(x=>x.revenue),backgroundColor:palette()}]);
+  restoreSectionAI();
 }
 function palette(){return ['#b3902c','#d0b05a','#e0ca89','#8b7b55','#383530','#c8b985','#a6893e','#eee3c2','#6d6041','#f3d66a']}
 init();
