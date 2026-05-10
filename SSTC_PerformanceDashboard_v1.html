@@ -333,7 +333,7 @@ async function init(){
     document.getElementById('sourceFilter').innerHTML='<option value="all">全部來源</option>'+sources.map(s=>`<option>${esc(s)}</option>`).join('');
     renderAll();
   }catch(e){
-    document.querySelector('.wrap').innerHTML='<div class="card wide"><h2>資料載入失敗</h2><p class="note">目前 Google Sheet 資料欄位與儀表板預期不一致。請先按上方「清除來源」回到 GitHub JSON 備份資料。</p><pre class="ai-out">'+esc(e.message)+'</pre></div>';
+    renderSourceDiagnostics(e.message);
   }
 }
 function readSheet(name){return (raw&&raw.sheets&&raw.sheets[name])||[]}
@@ -376,7 +376,8 @@ function cleanHodoRows(){
   }).filter(r=>brandFilter==='all'||r.brand===brandFilter).filter(r=>r.platform!=='Unknown'||r.impressions||r.clicks||r.spend||r.revenue);
 }
 function parseVendorSummary(){
-  const sheets=(hodoVendorRaw&&hodoVendorRaw.sheets)||[];
+  const source=(hodoVendorRaw&&hodoVendorRaw.sheets)||{};
+  const sheets=Array.isArray(source)?source:Object.keys(source).map(name=>({name,rows:source[name]}));
   const summaries=[];
   sheets.forEach(s=>{
     if(!s||!s.rows)return;
