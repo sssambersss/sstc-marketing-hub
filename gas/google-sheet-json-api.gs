@@ -1,16 +1,15 @@
-/**
- * Google Sheet JSON API for SST&C Performance Dashboard.
+/*
+ * SSTC Google Sheet JSON API
  *
- * Put this script inside each Google Sheet:
- * - Normalized performance sheet
- * - Hodo vendor raw report sheet
+ * Paste this file into each Google Sheet Apps Script project.
  *
- * Deploy as Web app:
+ * Deploy:
+ * - Type: Web app
  * - Execute as: Me
  * - Who has access: Anyone
  *
- * The dashboard can read:
- *   WEB_APP_URL?callback=myCallback
+ * Test:
+ * WEB_APP_URL?callback=test
  */
 
 function doGet(e) {
@@ -33,21 +32,22 @@ function doGet(e) {
 function exportWorkbook_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheets = {};
+  var rawSheets = {};
 
   ss.getSheets().forEach(function (sheet) {
     var values = sheet.getDataRange().getValues();
+    var name = sheet.getName();
+    rawSheets[name] = normalizeMatrix_(values);
+
     if (!values || !values.length) {
-      sheets[sheet.getName()] = [];
+      sheets[name] = [];
       return;
     }
 
     var headerRowIndex = findHeaderRow_(values);
-    var headers = values[headerRowIndex].map(function (h, i) {
-      var key = String(h || '').trim();
-      return key || ('__col_' + (i + 1));
-    });
-
+    var headers = buildHeaders_(values[headerRowIndex] || []);
     var rows = [];
+
     for (var r = headerRowIndex + 1; r < values.length; r++) {
       var row = values[r];
       if (isBlankRow_(row)) continue;
@@ -55,40 +55,69 @@ function exportWorkbook_() {
       var obj = {};
       for (var c = 0; c < headers.length; c++) {
         var key = headers[c];
-        if (!key || key.indexOf('__col_') === 0) continue;
+        if (!key) continue;
         obj[key] = normalizeCell_(row[c]);
       }
       rows.push(obj);
     }
 
-    sheets[sheet.getName()] = rows;
+    sheets[name] = rows;
   });
 
   return {
+    ok: true,
     generatedAt: new Date().toISOString(),
     sourceFile: ss.getName(),
     spreadsheetId: ss.getId(),
-    sheets: sheets
+    sheets: sheets,
+    rawSheets: rawSheets
   };
+}
+
+function normalizeMatrix_(values) {
+  return (values || []).map(function (row) {
+    return row.map(function (cell) {
+      return normalizeCell_(cell);
+    });
+  });
+}
+
+function buildHeaders_(row) {
+  var used = {};
+  return row.map(function (cell, index) {
+    var key = String(cell || '').trim();
+    if (!key) key = 'col_' + (index + 1);
+    key = key.replace(/\s+/g, ' ');
+
+    if (!used[key]) {
+      used[key] = 1;
+      return key;
+    }
+
+    used[key] += 1;
+    return key + '_' + used[key];
+  });
 }
 
 function findHeaderRow_(values) {
   var bestIndex = 0;
   var bestScore = -1;
-  var keywords = [
-    '日期', '日期範圍', '品牌', '平台', '廣告名稱', '受眾名稱', '素材名稱',
-    '曝光次數', '點擊次數', '花費', '購買金額', 'ROAS',
-    '來源/媒介', 'Campaign', 'Content', '工作階段數',
-    'name', 'sent_date', 'sent', 'clicks'
-  ];
 
-  for (var i = 0; i < Math.min(values.length, 20); i++) {
-    var row = values[i].map(function (v) { return String(v || '').trim(); });
-    var nonBlank = row.filter(Boolean).length;
-    var score = nonBlank;
-    keywords.forEach(function (k) {
-      if (row.indexOf(k) >= 0) score += 5;
+  for (var i = 0; i < Math.min(values.length, 30); i++) {
+    var row = values[i] || [];
+    var nonBlank = 0;
+    var textScore = 0;
+
+    row.forEach(function (cell) {
+      var text = String(cell || '').trim();
+      if (!text) return;
+      nonBlank += 1;
+      if (/[A-Za-z]/.test(text)) textScore += 1;
+      if (/[\u4e00-\u9fff]/.test(text)) textScore += 1;
+      if (/ROAS|CTR|CPC|Campaign|Content|name|sent|click|date|source|medium/i.test(text)) textScore += 3;
     });
+
+    var score = nonBlank + textScore;
     if (score > bestScore) {
       bestScore = score;
       bestIndex = i;
@@ -99,8 +128,8 @@ function findHeaderRow_(values) {
 }
 
 function isBlankRow_(row) {
-  return row.every(function (v) {
-    return v === '' || v === null || typeof v === 'undefined';
+  return (row || []).every(function (cell) {
+    return cell === '' || cell === null || typeof cell === 'undefined';
   });
 }
 

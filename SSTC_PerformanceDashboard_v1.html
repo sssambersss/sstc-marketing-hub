@@ -53,6 +53,7 @@
       <input id="aiEndpoint" class="input" placeholder="AI 服務網址 GAS" style="width:250px">
       <button class="btn" onclick="saveAIEndpoint()">儲存 AI</button>
       <button class="btn" onclick="openDataSourceModal()">資料來源</button>
+      <button class="btn" onclick="clearDataSources()">清除來源</button>
       <a class="btn" href="SSTC_v46.html" style="text-decoration:none">回主系統</a>
     </div>
   </div>
@@ -121,6 +122,12 @@ function saveDataSources(){
   localStorage.setItem('sstc_perf_sheet_endpoint',document.getElementById('perfSheetEndpoint').value.trim());
   localStorage.setItem('sstc_hodo_sheet_endpoint',document.getElementById('hodoSheetEndpoint').value.trim());
   closeDataSourceModal();
+  init();
+}
+function clearDataSources(){
+  localStorage.removeItem('sstc_perf_sheet_endpoint');
+  localStorage.removeItem('sstc_hodo_sheet_endpoint');
+  alert('資料來源已清除，將改用 GitHub JSON 備份資料');
   init();
 }
 function loadJsonp(url){
@@ -286,11 +293,25 @@ async function init(){
   document.getElementById('aiEndpoint').value=getAIEndpoint();
   const perfEndpoint=getDataSource('sstc_perf_sheet_endpoint');
   const hodoEndpoint=getDataSource('sstc_hodo_sheet_endpoint');
-  raw=perfEndpoint?await loadJsonp(perfEndpoint).catch(()=>fetch(DATA_URL).then(r=>r.json())):await fetch(DATA_URL).then(r=>r.json());
-  try{hodoVendorRaw=hodoEndpoint?await loadJsonp(hodoEndpoint):await fetch(HODO_VENDOR_URL).then(r=>r.json())}catch(e){hodoVendorRaw=null}
-  const sources=[...new Set(readSheet('91APP｜綜合數據').map(r=>getVal(r,'來源/媒介')).filter(Boolean))].slice(0,80);
-  document.getElementById('sourceFilter').innerHTML='<option value="all">全部來源</option>'+sources.map(s=>`<option>${esc(s)}</option>`).join('');
-  renderAll();
+  try{
+    raw=perfEndpoint?await loadJsonp(perfEndpoint):await fetch(DATA_URL).then(r=>r.json());
+  }catch(e){
+    raw=await fetch(DATA_URL).then(r=>r.json());
+    alert('整理後成效表讀取失敗，已改用 GitHub JSON 備份資料');
+  }
+  try{
+    hodoVendorRaw=hodoEndpoint?await loadJsonp(hodoEndpoint):await fetch(HODO_VENDOR_URL).then(r=>r.json());
+  }catch(e){
+    hodoVendorRaw=await fetch(HODO_VENDOR_URL).then(r=>r.json()).catch(()=>null);
+    alert('禾多原始周報讀取失敗，已改用 GitHub JSON 備份資料');
+  }
+  try{
+    const sources=[...new Set(readSheet('91APP｜綜合數據').map(r=>getVal(r,'來源/媒介')).filter(Boolean))].slice(0,80);
+    document.getElementById('sourceFilter').innerHTML='<option value="all">全部來源</option>'+sources.map(s=>`<option>${esc(s)}</option>`).join('');
+    renderAll();
+  }catch(e){
+    document.querySelector('.wrap').innerHTML='<div class="card wide"><h2>資料載入失敗</h2><p class="note">目前 Google Sheet 資料欄位與儀表板預期不一致。請先按上方「清除來源」回到 GitHub JSON 備份資料。</p><pre class="ai-out">'+esc(e.message)+'</pre></div>';
+  }
 }
 function readSheet(name){return (raw&&raw.sheets&&raw.sheets[name])||[]}
 function getVal(row,...keys){for(const k of keys){if(row&&row[k]!==undefined&&row[k]!==null&&row[k]!=='')return row[k]}return ''}

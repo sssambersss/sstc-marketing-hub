@@ -134,6 +134,7 @@ function generateAnalytics(body) {
     'Analyze this Taiwan fashion e-commerce marketing performance data.',
     'Write in Traditional Chinese.',
     'Be practical and specific. Do not overclaim.',
+    'Keep the answer concise for an executive dashboard.',
     'Focus on: performance summary, risks, opportunities, audience segmentation, budget actions, next experiments.',
     'If section-level data is provided, first understand the global context, then analyze the selected section.',
     '',
@@ -152,16 +153,20 @@ function generateAnalytics(body) {
     'Top sources:',
     topSources,
     '',
-    'Return a concise report with these sections:',
-    '1. Overall finding',
-    '2. What is working',
-    '3. What needs attention',
-    '4. Audience suggestions',
-    '5. Budget and creative next steps'
+    'Return this exact compact structure:',
+    '1. Key finding: 2 bullet points, each under 35 Chinese characters.',
+    '2. Action now: 3 bullet points, each under 35 Chinese characters.',
+    '3. Watch out: 2 bullet points, each under 35 Chinese characters.',
+    '4. Next test: 2 bullet points, each under 35 Chinese characters.',
+    'Do not write long paragraphs. Do not add a final summary.'
   ].join('\n');
 
   var payload = {
     model: model,
+    max_output_tokens: 2200,
+    reasoning: {
+      effort: 'low'
+    },
     input: [
       {
         role: 'developer',
