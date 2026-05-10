@@ -107,7 +107,7 @@ function destroy(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
 function chart(id,type,labels,datasets,opts={}){destroy(id);charts[id]=new Chart(document.getElementById(id),{type,data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},...opts}})}
 function kpis(items){return `<div class="kpis">${items.map(i=>`<div class="kpi"><div class="label">${i.label}</div><div class="value">${i.value}</div><div class="delta ${i.good?'good':''}">${i.delta||''}</div></div>`).join('')}</div>`}
 function table(rows,cols,limit=10){return `<div class="table-wrap"><table class="table"><thead><tr>${cols.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,limit).map(r=>`<tr>${cols.map(c=>`<td>${c[2]?c[2](r[c[1]],r):r[c[1]]}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}
-function showPanel(id,btn){if(window.currentPanelId&&window.currentPanelId!==id){sectionAIState={}}window.currentPanelId=id;document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+id).classList.add('active');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');setTimeout(renderAll,30)}
+function showPanel(id,btn){window.currentPanelId=id;document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));document.getElementById('panel-'+id).classList.add('active');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');setTimeout(renderAll,30)}
 function saveAIEndpoint(){localStorage.setItem('sstc_ai_endpoint',document.getElementById('aiEndpoint').value.trim());alert('AI 服務網址已儲存')}
 function getAIEndpoint(){return (localStorage.getItem('sstc_ai_endpoint')||'').trim()}
 function getDataSource(key){return (localStorage.getItem(key)||'').trim()}
@@ -274,6 +274,13 @@ function callJsonp(endpoint,payload){return new Promise((resolve,reject)=>{const
 const HODO_VENDOR_URL='data/hodo-vendor-report.json';
 let hodoVendorRaw=null;
 let sectionAIState={};
+function currentFilterKey(){
+  const brand=document.getElementById('brandFilter')?.value||'all';
+  const source=document.getElementById('sourceFilter')?.value||'all';
+  const panel=window.currentPanelId||document.querySelector('.panel.active')?.id?.replace('panel-','')||'unknown';
+  return [panel,brand,source].join('|');
+}
+function sectionAIKey(targetId,scope){return [currentFilterKey(),targetId,scope].join('|')}
 
 async function init(){
   document.getElementById('aiEndpoint').value=getAIEndpoint();
@@ -371,7 +378,8 @@ function aiBlock(id,label,scope){
 async function runSectionAI(targetId,scope){
   const rows=cleanHodoRows();
   const out=document.getElementById(targetId);
-  if(sectionAIState[targetId]){out.style.display='block';out.textContent=sectionAIState[targetId];return}
+  const cacheKey=sectionAIKey(targetId,scope);
+  if(sectionAIState[cacheKey]){out.style.display='block';out.textContent=sectionAIState[cacheKey];return}
   out.style.display='block';out.textContent='AI 分析中...';
   const context=hodoGlobalContext(rows);
   let sectionData={};
@@ -381,17 +389,23 @@ async function runSectionAI(targetId,scope){
   if(scope==='source')sectionData=groupClean(rows,'platform',['spend','revenue','clicks','impressions']).map(x=>({...x,roas:x.revenue/Math.max(x.spend,1)}));
   try{
     const endpoint=getAIEndpoint();
-    if(!endpoint){sectionAIState[targetId]=localHodoInsight(scope,context,sectionData);out.textContent=sectionAIState[targetId];return}
+    if(!endpoint){sectionAIState[cacheKey]=localHodoInsight(scope,context,sectionData);out.textContent=sectionAIState[cacheKey];return}
     const res=await callJsonp(endpoint,{mode:'analytics',section:'hodo-'+scope,metrics:{global:compactHodoContext(context),sectionData:compactHodoSection(scope,sectionData)},instruction:'Analyze the selected Hodo dashboard section. Use the global Hodo context first, then explain this specific section. Write Traditional Chinese with concrete action suggestions.'});
     if(res.options){
       out.textContent='目前這個 AI 服務網址還是「文案生成」版本，尚未更新成「數據分析」版本。\n\n請到 AI Proxy GAS 貼上新版 openai-proxy-simple.gs 並重新部署新版本。';
       return;
     }
-    sectionAIState[targetId]=res.analysis||res.text||JSON.stringify(res,null,2);
-    out.textContent=sectionAIState[targetId];
+    sectionAIState[cacheKey]=res.analysis||res.text||JSON.stringify(res,null,2);
+    out.textContent=sectionAIState[cacheKey];
   }catch(e){out.textContent=localHodoInsight(scope,context,sectionData)+'\n\nAI 暫時失敗：'+e.message}
 }
-function restoreSectionAI(){Object.keys(sectionAIState).forEach(id=>{const out=document.getElementById(id);if(out){out.style.display='block';out.textContent=sectionAIState[id]}})}
+function restoreSectionAI(){
+  document.querySelectorAll('.ai-out').forEach(out=>{
+    const id=out.id;
+    const match=Object.keys(sectionAIState).find(key=>key.startsWith(currentFilterKey()+'|'+id+'|'));
+    if(match){out.style.display='block';out.textContent=sectionAIState[match]}
+  });
+}
 function localHodoInsight(scope,ctx,data){
   const roas=ctx.roas.toFixed(2);
   if(scope==='health')return `整體禾多資料 ROAS 約 ${roas}，但資料來源為廠商周報加人工整理，應先處理 Unknown、Missing Name 與 Total Row。建議要求廠商固定提供：品牌、平台、活動名稱、廣告類型、週期、花費、營收、購買次數。`;
