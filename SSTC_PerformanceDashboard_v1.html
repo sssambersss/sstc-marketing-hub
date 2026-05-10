@@ -374,6 +374,10 @@ async function runSectionAI(targetId,scope){
     const endpoint=getAIEndpoint();
     if(!endpoint){out.textContent=localHodoInsight(scope,context,sectionData);return}
     const res=await callJsonp(endpoint,{mode:'analytics',section:'hodo-'+scope,metrics:{global:context,sectionData},instruction:'Analyze the selected Hodo dashboard section. Use the global Hodo context first, then explain this specific section. Write Traditional Chinese with concrete action suggestions.'});
+    if(res.options){
+      out.textContent='目前這個 AI 服務網址還是「文案生成」版本，尚未更新成「數據分析」版本。\n\n請到 AI Proxy GAS 貼上新版 openai-proxy-simple.gs 並重新部署新版本。';
+      return;
+    }
     out.textContent=res.analysis||res.text||JSON.stringify(res,null,2);
   }catch(e){out.textContent=localHodoInsight(scope,context,sectionData)+'\n\nAI 暫時失敗：'+e.message}
 }
