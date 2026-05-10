@@ -391,8 +391,9 @@ function parseVendorSummary(){
     let section='Unknown';
     let dataRows=0,totalRows=0,notes=0;
     s.rows.forEach(row=>{
-      const first=String(row[0]||'').trim();
-      const joined=row.map(x=>String(x||'')).join(' ');
+      const cells=Array.isArray(row)?row:Object.values(row||{});
+      const first=String(cells[0]||'').trim();
+      const joined=cells.map(x=>String(x||'')).join(' ');
       if(/META|Meta|FB/.test(first))section='Meta';
       if(/GOOGLE|Google|PMAX/.test(first))section='Google';
       if(first==='總計')totalRows++;
