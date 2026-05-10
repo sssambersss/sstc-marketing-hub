@@ -377,9 +377,14 @@ function cleanHodoRows(){
 }
 function parseVendorSummary(){
   const source=(hodoVendorRaw&&hodoVendorRaw.sheets)||{};
-  const sheets=Array.isArray(source)?source:Object.keys(source).map(name=>({name,rows:source[name]}));
+  let sheetList=[];
+  if(Array.isArray(source)){
+    sheetList=source;
+  }else if(source&&typeof source==='object'){
+    sheetList=Object.keys(source).map(name=>({name,rows:source[name]}));
+  }
   const summaries=[];
-  sheets.forEach(s=>{
+  sheetList.forEach(s=>{
     if(!s||!s.rows)return;
     const brand=inferBrand(s.name);
     const period=(s.name.match(/_(.+)$/)||[])[1]||'';
